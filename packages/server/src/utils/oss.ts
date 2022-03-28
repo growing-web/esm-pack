@@ -3,13 +3,6 @@ import OSS from 'ali-oss'
 const UPLOAD_DIR = 'npm-store'
 
 export function createOssClient() {
-  console.log({
-    region: process.env.OSS_REGION,
-    bucket: process.env.OSS_BUCKET,
-    accessKeyId: process.env.OSS_ACCESS_ID,
-    accessKeySecret: process.env.OSS_ACCESS_SECRET,
-  })
-
   return new OSS({
     region: process.env.OSS_REGION,
     bucket: process.env.OSS_BUCKET,

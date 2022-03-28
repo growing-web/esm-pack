@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common'
-import { NotFoundException, AppException } from '../../common/exception'
+import { AppException } from '../../common/exception'
 import {
   getNpmPackageInfo,
   getNpmTarball,
   getAndExtractTarball,
 } from '../../utils/npm'
-import { Semver, SemverRange } from 'sver'
+import { Semver } from 'sver'
 import fs from 'fs-extra'
 import { PackageJson, readPackageJSON, writePackageJSON } from 'pkg-types'
 import path from 'path'
@@ -14,20 +14,12 @@ import { resolveExports } from './core/resolve-exports'
 import { resolveFiles } from './core/resolve-files'
 import { build } from './core/'
 import { init } from 'es-module-lexer'
-// import fg from 'fast-glob'
-// import { uploadOss } from '../../utils/oss'
-
-const npmPrefix = 'npm:'
-// const githubPrefix = 'github:'
-
-const URL_RE =
-  /^(npm:|github:)((?:@[^/\\%@]+\/)?[^./\\%@][^/\\%@]*)@?([^\\/]+)?(\/.*)?$/
+import validateNpmPackageName from 'validate-npm-package-name'
 
 const PACKAGE_RE = /^((?:@[^/\\%@]+\/)?[^./\\%@][^/\\%@]*)@([^\\/]+)(\/.*)?$/
 
 const TEMP_DIR = '.temp'
 const PUBLIC_DIR = 'public'
-
 const PROCESS_STATE = '__process__'
 
 @Injectable()
@@ -53,6 +45,13 @@ export class BuildService {
       throw new AppException(
         `Invalid version ${version}. Only exact semver versions are supported.`,
       )
+    }
+
+    const errors = validateNpmPackageName(name).errors
+
+    if (errors) {
+      const reason = errors.join(', ')
+      throw new AppException(`Invalid package name "${name}" (${reason})`)
     }
 
     const npmInfo = await getNpmPackageInfo(name)
@@ -164,80 +163,6 @@ export class BuildService {
 
     buildFiles = buildFiles.map((item) => path.resolve(tempPath, item))
 
-    // const cjsFiles: string[] = []
-    // for (const file of buildFiles) {
-    //   const filePath = path.resolve(tempPath, file)
-    //   const parseData = parse(fs.readFileSync(filePath, { encoding: 'utf-8' }))
-    //   const _imports = parseData?.[0] ?? []
-    //   if (!_imports.length) {
-    //     cjsFiles.push(filePath)
-    //   } else {
-    //     copyFiles.push(file)
-    //   }
-    // }
-
-    // buildFiles = cjsFiles.filter(Boolean) as string[]
-
     return { buildFiles, copyFiles }
-  }
-
-  // npm:${name}@${version}
-  async getLatestVersion(url?: string) {
-    if (!url) {
-      throw new NotFoundException()
-    }
-
-    const isNpm = url.startsWith(npmPrefix)
-    // TODO support GitHub
-    // const isGitHub = str.startsWith(githubPrefix)
-    if (
-      !isNpm
-      // && !isGitHub
-    ) {
-      throw new NotFoundException()
-    }
-
-    const match = url.match(URL_RE)
-
-    if (!match) {
-      throw new NotFoundException()
-    }
-
-    const [, prefix, pkgName, version] = match
-
-    if (prefix === npmPrefix) {
-      return this.getNpmLatestVersion(pkgName, version)
-    }
-  }
-
-  /**
-   * Get the latest version of the specified npm package
-   * @param scope npm scope
-   * @param pkgName npm name
-   * @returns
-   */
-  private async getNpmLatestVersion(pkgName: string, version: string) {
-    const ret = await getNpmPackageInfo(`${pkgName}`)
-
-    // No version specified, get the latest version
-    if (!version) {
-      const latest = ret['dist-tags']?.latest
-      return latest
-    }
-
-    // The normal version number, no information is output
-    if (Semver.isValid(version)) {
-      throw new NotFoundException()
-    }
-
-    const npmVersionInfos = ret.versions || {}
-    const npmVersions = Object.keys(npmVersionInfos)
-
-    const range = new SemverRange(`${version}`)
-    const bestVersion = range.bestMatch(npmVersions)?.toString()
-    if (!bestVersion) {
-      throw new NotFoundException()
-    }
-    return bestVersion
   }
 }

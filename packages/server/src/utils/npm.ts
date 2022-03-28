@@ -4,6 +4,19 @@ import path from 'pathe'
 import tar from 'tar'
 import request from 'request-promise'
 import progress from 'request-progress'
+import LRUCache from 'lru-cache'
+
+const oneMegabyte = 1024 * 1024
+const oneSecond = 1000
+const oneMinute = oneSecond * 60
+
+const notFound = ''
+
+const cache = new LRUCache({
+  max: oneMegabyte * 40,
+  length: Buffer.byteLength,
+  maxAge: oneSecond,
+})
 
 /**
  * Detect the latest version of NPM
@@ -14,6 +27,13 @@ import progress from 'request-progress'
 export async function getNpmPackageInfo(pkgName: string): Promise<any> {
   const ret = await fetch.json(`${pkgName}`)
   return ret
+}
+
+async function fetchVersionsAndTags(packageName) {
+  const info = await getNpmPackageInfo(packageName)
+  return info && info.versions
+    ? { versions: Object.keys(info.versions), tags: info['dist-tags'] }
+    : null
 }
 
 /**
@@ -92,4 +112,23 @@ export async function getAndExtractTarball(
           .catch(reject)
       })
   })
+}
+
+export async function getVersionsAndTags(packageName: string) {
+  const cacheKey = `versions-${packageName}` as 'utf8'
+  const cacheValue = cache.get(cacheKey)
+
+  if (cacheValue !== null && cacheValue !== undefined) {
+    return cacheValue === notFound ? null : JSON.parse(cacheValue)
+  }
+
+  const value = await fetchVersionsAndTags(packageName)
+
+  if (value === null) {
+    cache.set(cacheKey, notFound, 5 * oneMinute)
+    return null
+  }
+
+  cache.set(cacheKey, JSON.stringify(value), oneMinute)
+  return value
 }

@@ -4,13 +4,15 @@ import {
   ExpressAdapter,
   NestExpressApplication,
 } from '@nestjs/platform-express'
-import passport from 'passport'
+// import passport from 'passport'
 import helmet from 'helmet'
 import compression from 'compression'
 import { ConfigService } from './config/config.service'
 import { Logger, createSwagger } from './plugins'
-import { TransformInterceptor } from './common/interceptor'
+// import { TransformInterceptor } from './common/interceptor'
 import path from 'path'
+import morgan from 'morgan'
+import { isDev } from './utils/env'
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(
@@ -18,10 +20,13 @@ async function bootstrap() {
     new ExpressAdapter(),
   )
 
-  app.use(passport.initialize())
-
-  // 可以反向代理
+  app.disable('x-powered-by')
   app.enable('trust proxy')
+  app.enable('strict routing')
+
+  if (isDev) {
+    app.use(morgan('dev'))
+  }
 
   app.enableCors({
     origin: (origin, cb) => {
@@ -30,7 +35,6 @@ async function bootstrap() {
     credentials: true,
   })
 
-  // Web漏洞的
   app.use(helmet())
   app.use(compression())
 
@@ -41,7 +45,7 @@ async function bootstrap() {
   app.setGlobalPrefix(apiPrefix)
 
   app.useStaticAssets(path.join(__dirname, '..', 'public'), {
-    prefix: '/api/',
+    maxAge: '1y',
   })
 
   // 打印请求日志
@@ -49,10 +53,10 @@ async function bootstrap() {
 
   // 使用全局拦截器
   //   app.useGlobalFilters(new AppExceptionFilter());
-  app.useGlobalInterceptors(
-    //   new LoggerInterceptor(reflector),
-    new TransformInterceptor(),
-  )
+  //   app.useGlobalInterceptors(
+  //     //   new LoggerInterceptor(reflector),
+  //     new TransformInterceptor(),
+  //   )
 
   const swaggerServer = createSwagger(app)
 

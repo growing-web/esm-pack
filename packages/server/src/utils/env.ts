@@ -2,9 +2,9 @@ import dotenv from 'dotenv'
 
 export const ENV = process.env.NODE_ENV
 
-export const isDev = ENV === 'development'
-
 export const isProd = ENV === 'production'
+
+export const isDev = ENV === 'development'
 
 export function loadEnv() {
   const env = process.env.NODE_ENV
