@@ -10,15 +10,6 @@ declare namespace NodeJS {
     THROTTLE_TTL: string
     THROTTLE_LIMIT: string
 
-    SWAGGER_URL: string
-    SWAGGER_ENABLE: 'true' | 'false'
-    SWAGGER_TITLE: string
-    SWAGGER_DESC: string
-    SWAGGER_VERSION: string
-
-    JWT_SECRET: string
-    JWT_EXPIRATION: string
-
     OSS_ACCESS_ID: string
     OSS_ACCESS_SECRET: string
     OSS_REGION: string

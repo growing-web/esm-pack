@@ -4,12 +4,10 @@ import {
   ExpressAdapter,
   NestExpressApplication,
 } from '@nestjs/platform-express'
-// import passport from 'passport'
 import helmet from 'helmet'
 import compression from 'compression'
 import { ConfigService } from './config/config.service'
-import { Logger, createSwagger } from './plugins'
-// import { TransformInterceptor } from './common/interceptor'
+import { Logger } from './plugins'
 import path from 'path'
 import morgan from 'morgan'
 import { isDev } from './utils/env'
@@ -58,13 +56,10 @@ async function bootstrap() {
   //     new TransformInterceptor(),
   //   )
 
-  const swaggerServer = createSwagger(app)
-
   await app.listen(appPort, () => {
     Logger.info(
-      `服务已经启动,访问地址：http://localhost:${appPort}${apiPrefix}`,
+      `The service has been started：http://localhost:${appPort}${apiPrefix}`,
     )
-    swaggerServer()
   })
 }
 bootstrap()
