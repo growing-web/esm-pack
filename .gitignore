@@ -18,4 +18,6 @@ coverage
 .cache
 .temp
 .turbo
-.local
+logs
+*.local
+.esmd

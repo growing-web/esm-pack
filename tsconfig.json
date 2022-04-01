@@ -1,27 +1,25 @@
 {
   "compilerOptions": {
-    "module": "ESNext",
-    "target": "es2017",
-    "lib": ["ESNext"],
-    "allowJs": true,
-    "checkJs": true,
+    "module": "commonjs",
     "declaration": true,
-    "sourceMap": true,
-    "esModuleInterop": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "es2017",
+    "sourceMap": false,
     "outDir": "./dist",
+    "baseUrl": "./",
+    "lib": ["ESNext", "DOM"],
+    "esModuleInterop": true,
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "moduleResolution": "node",
-    "resolveJsonModule": true,
-    "pretty": false,
+    "strictNullChecks": true,
+    "incremental": true,
     "skipLibCheck": true,
     "noImplicitAny": false,
-    "types": ["node"]
+    "types": ["node"],
+    "typeRoots": ["./node_modules/@types/", "./types"]
   },
-  "include": ["packages"],
-  "exclude": ["**/dist/**", "node_modules"],
-  "compileOnSave": false
+  "include": ["src", "types"],
+  "exclude": ["node_modules", "dist", ".analyze"]
 }

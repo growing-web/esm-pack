@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'cdn-server',
+      name: 'esm-pack',
       cwd: './',
       script: 'npm run start:prod',
       watch: false,
