@@ -1,4 +1,5 @@
-const PACKAGE_RE = /^((?:@[^/\\%@]+\/)?[^./\\%@][^/\\%@]*)@?([^\\/]+)?(\/.*)?$/
+const PACKAGE_RE =
+  /^((?:@[^/\\%@]+\/)?[^./\\%@][^/\\%@]*)@?([^\\/]+)?(\/.*)?(\/.*)?$/
 
 export function parsePackagePathname(pathname: string) {
   try {
@@ -14,9 +15,11 @@ export function parsePackagePathname(pathname: string) {
 
   const packageName = match[1]
   const packageVersion = match[2]
+  const filename = (match[3] || '').replace(/\/\/+/g, '/')
 
   return {
     packageName,
     packageVersion,
+    filename,
   }
 }

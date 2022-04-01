@@ -17,7 +17,7 @@ const enableOutFile = LOGGER_OUTPUT_ENABLE === 'true'
 function getLogDir(dir: string) {
   return APP_LOGGER_PATH
     ? APP_LOGGER_PATH + dir
-    : join(process.cwd(), 'logs' + dir)
+    : join(process.cwd(), '.esmd/logs' + dir)
 }
 
 function createConsoleTransport() {

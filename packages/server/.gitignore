@@ -2,3 +2,4 @@ logs
 *.local
 .temp
 public
+.esmd

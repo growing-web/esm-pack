@@ -6,15 +6,25 @@ import resolve from '@rollup/plugin-node-resolve'
 import esbuild from 'rollup-plugin-esbuild'
 import path from 'pathe'
 import fs from 'fs-extra'
+import { init, parse } from 'es-module-lexer'
 
 export async function build(
   buildFiles: string[],
-  outDir: string,
-  tempPath: string,
+  buildPath: string,
+  cachePath: string,
 ) {
   const input: Record<string, string> = {}
-
+  await init
+  let importers: string[] = []
   buildFiles.forEach((file) => {
+    const content = fs.readFileSync(file, { encoding: 'utf-8' })
+    const isCjs =
+      content.includes('require(') || content.includes('module.exports')
+    if (!isCjs) {
+      const [iimports] = parse(content)
+      importers.push(...iimports.map((item) => item.n || ''))
+    }
+
     let basename = path.basename(file)
     if (basename.indexOf('.') !== -1) {
       basename = basename.substring(0, basename.lastIndexOf('.'))
@@ -27,10 +37,15 @@ export async function build(
     input[inputName] = file
   })
 
+  importers = importers.filter((item) => {
+    if (!item || item.startsWith('.') || item.startsWith('/')) {
+      return false
+    }
+    return true
+  })
+
   const bundle = await rollup({
     input,
-    // treeshake: false,
-    // context: 'globalThis',
     preserveEntrySignatures: 'strict',
     onwarn: (warning, handler) => {
       if (warning.code === 'UNRESOLVED_IMPORT') {
@@ -38,12 +53,14 @@ export async function build(
       }
       handler(warning)
     },
+    external: importers,
     plugins: [
       esbuild({
+        target: 'es2021',
         include: /\.[m|c]?js$/,
         sourceMap: true,
-        minify: true,
-        legalComments: 'none',
+        // minify: true,
+        // legalComments: 'none',
         // define: {
         //   'process.env.NODE_ENV': 'production',
         // },
@@ -61,7 +78,7 @@ export async function build(
   })
 
   const { output } = await bundle.generate({
-    dir: outDir,
+    dir: buildPath,
     indent: true,
     // preserveModules: true,
     // interop: 'esModule',
@@ -69,27 +86,27 @@ export async function build(
     format: 'esm',
     sourcemap: true,
     entryFileNames: (chunk) => {
-      const fileName = path.relative(tempPath, chunk.facadeModuleId!)
+      const fileName = path.relative(cachePath, chunk.facadeModuleId!)
       if (fileName.endsWith('.js') || fileName.endsWith('.mjs')) {
         return fileName
       }
-      return `${path.relative(tempPath, chunk.facadeModuleId!)}.js`
+      return `${path.relative(cachePath, chunk.facadeModuleId!)}.js`
     },
   })
 
-  fs.ensureDirSync(outDir)
+  fs.ensureDirSync(buildPath)
 
   await Promise.all(
     output.map((chunk) => {
       return Promise.all([
         fs.outputFile(
-          path.join(outDir, chunk.fileName),
+          path.join(buildPath, chunk.fileName),
           // @ts-ignore
           chunk.code,
           { encoding: 'utf8' },
         ),
         fs.outputFile(
-          path.join(outDir, `${chunk.fileName}.map`),
+          path.join(buildPath, `${chunk.fileName}.map`),
           // @ts-ignore
           chunk.map.toString(),
           { encoding: 'utf8' },

@@ -1,7 +1,7 @@
 /**
  * @description: app异常
  */
-import { BasicException } from './basic-exception'
+import { BasicException } from './basicException'
 
 export class AppException extends BasicException {
   getErrorMessage(): string {

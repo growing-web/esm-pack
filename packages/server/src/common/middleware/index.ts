@@ -1,1 +1,1 @@
-export * from './no-query'
+export * from './noQuery'

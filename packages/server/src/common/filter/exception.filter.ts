@@ -4,16 +4,18 @@ import {
   HttpException,
   ExceptionFilter,
   HttpStatus,
+  NotFoundException,
 } from '@nestjs/common'
 import { Request } from 'express'
 import { Logger } from '../../plugins'
 import { ResponseWrapper } from '../../utils/response'
-import { BasicException } from '../exception/basic-exception'
+import { BasicException } from '../exception/basicException'
 import {
   Error403Exception,
   Error401Exception,
   Error404Exception,
-} from '../exception/error-state-exception'
+  Error500Exception,
+} from '../exception/errorStateException'
 
 @Catch()
 export class AppExceptionFilter implements ExceptionFilter {
@@ -36,12 +38,19 @@ export class AppExceptionFilter implements ExceptionFilter {
     } else if (exception instanceof Error404Exception) {
       logMsg = exception.getErrorMessage()
       response.status(HttpStatus.NOT_FOUND).type('text').send({ error: logMsg })
+    } else if (exception instanceof Error500Exception) {
+      logMsg = exception.getErrorMessage()
+      response
+        .status(HttpStatus.INTERNAL_SERVER_ERROR)
+        .type('text')
+        .send({ error: logMsg })
     } else if (exception instanceof BasicException) {
       logMsg = exception.getErrorMessage()
       response
         .status(HttpStatus.OK)
         .json(ResponseWrapper.error(`${logMsg}`, exception.getErrorCode()))
-      // http异常
+    } else if (exception instanceof NotFoundException) {
+      response.status(HttpStatus.NOT_FOUND).type('text').send('NOT FOUND!')
     } else {
       logMsg = '[Error]:' + exception
       response

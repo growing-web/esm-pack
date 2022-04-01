@@ -1,11 +1,10 @@
 import type { PackageJson } from 'pkg-types'
 import _ from 'lodash'
-import fg from 'fast-glob'
 import { recursionExportsValues } from './recursion'
 
-export async function resolveFiles(
+export async function resolvePackageFiles(
+  npmFiles: string[],
   pkg: PackageJson,
-  root: string,
   pkgExports: Record<string, any>,
 ) {
   let { files = [] } = pkg
@@ -18,8 +17,8 @@ export async function resolveFiles(
     )
   })
 
-  // add package.json、package.json.js to files
-  files.push(...['', '.js'].map((item) => `package.json${item}`))
+  // add package.json to files
+  files.push('package.json')
 
   // exports file
   const values = recursionExportsValues(pkgExports)
@@ -29,17 +28,10 @@ export async function resolveFiles(
     }),
   )
 
-  // Add .map to js file
-  files.forEach((item) => {
-    if (item.endsWith('.js') && !item.includes('*')) {
-      files.push(`${item}.map`)
-    }
-  })
-
   // add license and readme.md to files
-  const matchFiles = await fg(['license', 'readme.md', 'changelog.md'], {
-    cwd: root,
-    caseSensitiveMatch: false,
+
+  const matchFiles = npmFiles.filter((file) => {
+    return ['license', 'readme.md', 'changelog.md'].includes(file.toLowerCase())
   })
   files.push(...matchFiles)
   return Array.from(new Set(files)).sort()

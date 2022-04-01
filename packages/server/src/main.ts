@@ -8,7 +8,7 @@ import helmet from 'helmet'
 import compression from 'compression'
 import { ConfigService } from './config/config.service'
 import { Logger } from './plugins'
-import path from 'path'
+// import path from 'path'
 import morgan from 'morgan'
 import { isDev } from './utils/env'
 
@@ -42,9 +42,9 @@ async function bootstrap() {
   // 设置全局接口前缀
   app.setGlobalPrefix(apiPrefix)
 
-  app.useStaticAssets(path.join(__dirname, '..', 'public'), {
-    maxAge: '1y',
-  })
+  //   app.useStaticAssets(path.join(__dirname, '..', 'public'), {
+  //     maxAge: '1y',
+  //   })
 
   // 打印请求日志
   // app.use(loggerMiddleware);

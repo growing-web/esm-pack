@@ -1,6 +1,6 @@
 import type { PackageJson } from 'pkg-types'
 import _ from 'lodash'
-import { buildExports } from './build-exports'
+import { buildExports } from './buildExports'
 // import { recursionExportsValues } from './recursion'
 // import fs from 'fs-extra'
 // import path from 'path'

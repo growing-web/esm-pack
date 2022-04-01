@@ -2,9 +2,16 @@ import fetch from 'npm-registry-fetch'
 import fs from 'fs-extra'
 import path from 'pathe'
 import tar from 'tar'
+import { URL } from 'url'
+import https, { RequestOptions } from 'https'
 import request from 'request-promise'
 import progress from 'request-progress'
 import LRUCache from 'lru-cache'
+import gunzip from 'gunzip-maybe'
+import { bufferStream } from './bufferStream'
+
+const npmRegistryURL =
+  process.env.NPM_REGISTRY_URL || 'https://registry.npmjs.org'
 
 const oneMegabyte = 1024 * 1024
 const oneSecond = 1000
@@ -12,11 +19,39 @@ const oneMinute = oneSecond * 60
 
 const notFound = ''
 
+// All the keys that sometimes appear in package info
+// docs that we don't need. There are probably more.
+const packageConfigExcludeKeys = [
+  //   'browserify',
+  'bugs',
+  //   'directories',
+  //   'engines',
+  //   'files',
+  //   'homepage',
+  //   'keywords',
+  //   'maintainers',
+  //   'scripts',
+]
+
 const cache = new LRUCache({
   max: oneMegabyte * 40,
   length: Buffer.byteLength,
   maxAge: oneSecond,
 })
+
+const agent = new https.Agent({
+  keepAlive: true,
+})
+
+function get(options: RequestOptions): Promise<any> {
+  return new Promise((resolve, reject) => {
+    https.get(options, resolve).on('error', reject)
+  })
+}
+
+function isScopedPackageName(packageName: string) {
+  return packageName.startsWith('@')
+}
 
 /**
  * Detect the latest version of NPM
@@ -54,9 +89,9 @@ export function getNpmTarball(
 /**
  * Get the tar and extract it to the specified folder
  */
-export async function getAndExtractTarball(
+export async function extractTarball(
   destDir: string,
-  tarball: string,
+  tarballURL: string,
   // eslint-disable-next-line
   progressFunc = (state) => {},
 ): Promise<string[]> {
@@ -67,7 +102,7 @@ export async function getAndExtractTarball(
 
     progress(
       request({
-        url: tarball,
+        url: tarballURL,
         timeout: 10000,
       }),
     )
@@ -112,6 +147,136 @@ export async function getAndExtractTarball(
           .catch(reject)
       })
   })
+}
+
+function encodePackageName(packageName: string) {
+  return isScopedPackageName(packageName)
+    ? `@${encodeURIComponent(packageName.substring(1))}`
+    : encodeURIComponent(packageName)
+}
+
+async function fetchPackageInfo(packageName: string) {
+  const name = encodePackageName(packageName)
+  const infoURL = `${npmRegistryURL}/${name}`
+
+  console.debug('Fetching package info for %s from %s', packageName, infoURL)
+
+  const { hostname, pathname } = new URL(infoURL)
+  const options = {
+    agent: agent,
+    hostname: hostname,
+    path: pathname,
+    headers: {
+      Accept: 'application/json',
+    },
+  }
+
+  const res = await get(options)
+
+  if (res.statusCode === 200) {
+    return bufferStream(res).then(JSON.parse)
+  }
+
+  if (res.statusCode === 404) {
+    return null
+  }
+
+  const content = (await bufferStream(res)).toString('utf-8')
+
+  console.error(
+    'Error fetching info for %s (status: %s)',
+    packageName,
+    res.statusCode,
+  )
+  console.error(content)
+
+  return null
+}
+
+function cleanPackageConfig(config) {
+  return Object.keys(config).reduce((memo, key) => {
+    if (!key.startsWith('_') && !packageConfigExcludeKeys.includes(key)) {
+      memo[key] = config[key]
+    }
+
+    return memo
+  }, {})
+}
+
+async function fetchPackageConfig(packageName: string, version: string) {
+  const info = await fetchPackageInfo(packageName)
+  return info && info.versions && version in info.versions
+    ? cleanPackageConfig(info.versions[version])
+    : null
+}
+
+/**
+ * Returns metadata about a package, mostly the same as package.json.
+ * Uses a cache to avoid over-fetching from the registry.
+ */
+export async function getPackageConfig(packageName: string, version: string) {
+  const cacheKey = `config-${packageName}-${version}`
+  const cacheValue = cache.get(cacheKey)
+
+  if (cacheValue != null) {
+    return cacheValue === notFound ? null : JSON.parse(cacheValue)
+  }
+
+  const value = await fetchPackageConfig(packageName, version)
+
+  if (value == null) {
+    cache.set(cacheKey, notFound, 5 * oneMinute)
+    return null
+  }
+
+  cache.set(cacheKey, JSON.stringify(value), oneMinute)
+  return value
+}
+
+export function getTarballURL(packageName: string, version: string) {
+  const tarballName = isScopedPackageName(packageName)
+    ? packageName.split('/')[1]
+    : packageName
+  return `${npmRegistryURL}/${packageName}/-/${tarballName}-${version}.tgz`
+}
+
+/**
+ * Returns a stream of the tarball'd contents of the given package.
+ */
+export async function getPackage(packageName: string, version: string) {
+  const tarballURL = getTarballURL(packageName, version)
+
+  console.debug('Fetching package for %s from %s', packageName, tarballURL)
+
+  const { hostname, pathname } = new URL(tarballURL)
+  const options = {
+    agent: agent,
+    hostname: hostname,
+    path: pathname,
+  }
+
+  const res = await get(options)
+
+  if (res.statusCode === 200) {
+    const stream = res.pipe(gunzip())
+    return stream
+  }
+
+  if (res.statusCode === 404) {
+    return null
+  }
+
+  const content = (await bufferStream(res)).toString('utf-8')
+
+  console.error(
+    'Error fetching tarball for %s@%s (status: %s)',
+    packageName,
+    version,
+    res.statusCode,
+  )
+  console.error(content)
+
+  return null
 }
 
 export async function getVersionsAndTags(packageName: string) {
