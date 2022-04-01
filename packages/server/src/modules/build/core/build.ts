@@ -3,7 +3,6 @@ import fs from 'fs-extra'
 import MagicString from 'magic-string'
 import { POLYFILL_PREFIX } from '../../../constants'
 import path from 'pathe'
-// import { parse as cjsParse } from 'cjs-esm-exports'
 
 export async function build(
   buildFiles: string[],
