@@ -18,7 +18,7 @@ COPY . ${APP_INSTALL_PATH}
 
 RUN npm i -g pnpm
 
-RUN pnpm run install
+RUN pnpm install
 
 RUN pnpm run build
 
