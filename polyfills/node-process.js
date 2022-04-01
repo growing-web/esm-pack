@@ -34,7 +34,7 @@ function noop() {}
 
 function runTimeout(fn) {
   if (cachedSetTimeout === setTimeout) {
-    //normal enviroments in sane situations
+    // normal enviroments in sane situations
     return setTimeout(fn, 0)
   }
   // if setTimeout wasn't available but was latter defined
@@ -105,7 +105,7 @@ function drainQueue() {
   if (draining) {
     return
   }
-  let timeout = runTimeout(cleanUpNextTick)
+  const timeout = runTimeout(cleanUpNextTick)
   draining = true
 
   let len = queue.length
@@ -130,43 +130,18 @@ class Item {
     this.fn = fn
     this.array = array
   }
+
   run() {
     this.fn.apply(null, this.array)
   }
 }
 
-const deno = typeof Deno !== 'undefined'
-
 export default {
   title: 'browser',
   browser: true,
-  env: deno
-    ? new Proxy(
-        {},
-        {
-          get(_target, prop) {
-            return Deno.env.get(String(prop))
-          },
-          ownKeys: () => Reflect.ownKeys(Deno.env.toObject()),
-          getOwnPropertyDescriptor: (_target, name) => {
-            const e = Deno.env.toObject()
-            if (name in Deno.env.toObject()) {
-              const o = { enumerable: true, configurable: true }
-              if (typeof name === 'string') {
-                o.value = e[name]
-              }
-              return o
-            }
-          },
-          set(_target, prop, value) {
-            Deno.env.set(String(prop), String(value))
-            return value
-          },
-        },
-      )
-    : {},
-  argv: deno ? Deno.args ?? [] : [],
-  pid: deno ? Deno.pid ?? 0 : 0,
+  env: { NODE_ENV: 'production' },
+  argv: [],
+  pid: 0,
   version: 'v16.14.0',
   versions: {
     node: '16.14.0',
@@ -199,17 +174,13 @@ export default {
   binding: () => {
     throw new Error('process.binding is not supported')
   },
-  cwd: () => (deno ? Deno.cwd?.() ?? '/' : '/'),
-  chdir: (path) => {
-    if (deno) {
-      Deno.chdir(path)
-    } else {
-      throw new Error('process.chdir is not supported')
-    }
+  cwd: () => '/',
+  chdir: () => {
+    throw new Error('process.chdir is not supported')
   },
-  umask: () => (deno ? Deno.umask ?? 0 : 0),
+  umask: () => 0,
   nextTick: (fn) => {
-    let args = new Array(arguments.length - 1)
+    const args = new Array(arguments.length - 1)
     if (arguments.length > 1) {
       for (let i = 1; i < arguments.length; i++) {
         args[i - 1] = arguments[i]

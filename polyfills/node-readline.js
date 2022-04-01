@@ -1,5 +1,5 @@
 function notImplemented(name) {
-  throw new Error(`[esm.sh] readline: '${name}' is not implemented`)
+  throw new Error(`[esm] readline: '${name}' is not implemented`)
 }
 
 export class Interface {

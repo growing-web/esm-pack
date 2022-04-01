@@ -11,7 +11,7 @@ import { Logger } from './plugins'
 // import path from 'path'
 import morgan from 'morgan'
 import { isDev } from './utils/env'
-
+process.setMaxListeners(0)
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(
     AppModule,

@@ -1,30 +1,38 @@
 import { Injectable } from '@nestjs/common'
 import { extractTarball, getTarballURL } from '../../utils/npm'
 import { PackageJson, writePackageJSON } from 'pkg-types'
-import { build } from './core/build'
+// import { build } from './core/build'
 import {
-  validatePackageConfig,
+  //   validatePackageConfig,
   validatePackagePathname,
-  validatePackageVersion,
+  //   validatePackageVersion,
 } from '../../utils/validate'
 import AsyncLock from 'async-lock'
 import validateNpmPackageName from 'validate-npm-package-name'
 import fs from 'fs-extra'
 import path from 'path'
-import { Error403Exception } from '../../common/exception/errorStateException'
-import { CACHE_DIR, ETC_DIR, POLYFILL_DIR } from '../../constants'
-import { BUILDS_DIR } from '../../constants/index'
+import {
+  Error403Exception,
+  Error500Exception,
+} from '../../common/exception/errorStateException'
+import {
+  CACHE_DIR,
+  ETC_DIR,
+  BUILDS_DIR,
+  //  POLYFILL_DIR
+} from '../../constants'
 import { resolvePackage } from './core/resolvePackage'
+import { build as rollupBuild } from './core/rollupBuild'
 
 const lock = new AsyncLock()
 
-;(() => {
-  // init polyfills
-  const polyfillsDir = path.join(BUILDS_DIR, POLYFILL_DIR)
-  if (!fs.existsSync(polyfillsDir)) {
-    fs.copy(path.join(process.cwd(), 'polyfills'), polyfillsDir)
-  }
-})()
+// ;(() => {
+//   // init polyfills
+//   const polyfillsDir = path.join(BUILDS_DIR, POLYFILL_DIR)
+//   if (!fs.existsSync(polyfillsDir)) {
+//     fs.copy(path.join(process.cwd(), 'polyfills'), polyfillsDir)
+//   }
+// })()
 
 @Injectable()
 export class BuildService {
@@ -35,25 +43,20 @@ export class BuildService {
     const { packageName, packageVersion } = await validatePackagePathname(
       pathname,
     )
-
     await lock.acquire(
       `${packageName}@${packageVersion}`,
-      this.build.bind(this, pathname, packageName, packageVersion),
+      this.build.bind(this, packageName, packageVersion),
     )
   }
 
-  async build(
-    pathname: string | undefined,
-    packageName: string,
-    packageVersion: string,
-  ) {
+  async build(packageName: string, packageVersion: string) {
     await validateNpmPackageName(packageName)
 
-    await validatePackageVersion(packageName, packageVersion)
+    // await validatePackageVersion(packageName, packageVersion)
 
-    await validatePackageConfig(packageName, packageVersion)
+    // await validatePackageConfig(packageName, packageVersion)
 
-    const libDir = `${packageName}@${packageVersion}`
+    const libDir = `${packageName}/${packageVersion}`
     const buildsPath = this.getBuildsPath(libDir)
 
     const isBuilded = fs.existsSync(path.join(buildsPath, 'package.json'))
@@ -82,14 +85,20 @@ export class BuildService {
     const pkgJson = await this.rewritePackage(cachePath)
 
     const { buildFiles, copyFiles } = await this.getFiles(cachePath, pkgJson)
-
-    await build(buildFiles, buildsPath, cachePath)
-
-    await Promise.all(
-      copyFiles.map((item) =>
-        fs.copy(path.resolve(cachePath, item), path.resolve(buildsPath, item)),
-      ),
-    )
+    try {
+      //   await buildFunc(buildFiles, buildsPath, cachePath)
+      await rollupBuild(buildFiles, buildsPath, cachePath)
+      await Promise.all(
+        copyFiles.map((item) =>
+          fs.copy(
+            path.resolve(cachePath, item),
+            path.resolve(buildsPath, item),
+          ),
+        ),
+      )
+    } catch (error: any) {
+      throw new Error500Exception(error.toString())
+    }
   }
 
   private async rewritePackage(cachePath: string) {
@@ -113,6 +122,14 @@ export class BuildService {
     copyFiles.push('package.json')
 
     let buildFiles = files.filter((item) => {
+      const ext = path.extname(item)
+      if (!ext) {
+        return false
+      }
+      if (!fs.existsSync(path.join(cachePath, item))) {
+        return false
+      }
+
       if (item === 'package.json') {
         return true
       }

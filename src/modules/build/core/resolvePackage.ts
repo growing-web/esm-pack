@@ -6,10 +6,14 @@ import _ from 'lodash'
 import { normalizeExport, fileExits } from '../../../utils'
 import path from 'path'
 import fs from 'fs-extra'
-import { init, parse } from 'es-module-lexer'
+// import { init, parse } from 'es-module-lexer'
 
 export async function resolvePackage(cachePath: string) {
   let pkg = await readPackageJSON(cachePath)
+  // @ts-ignore
+  if (pkg.__ESMD__) {
+    return pkg
+  }
 
   pkg = fixNpmPackage(pkg)
 
@@ -18,6 +22,8 @@ export async function resolvePackage(cachePath: string) {
   pkg.exports = pkgExports
   pkg.files = files
 
+  // @ts-ignore
+  pkg.__ESMD__ = true
   return pkg
 }
 
@@ -84,16 +90,40 @@ function fixNpmPackage(pkg: PackageJson) {
 }
 
 export async function resolveExports(pkg: PackageJson, root: string) {
+  const { files: originFiles = [] } = pkg
+
   let resultExports = await buildExports(pkg, root)
+
+  for (const file of originFiles) {
+    if (/(\.m?js)$/.test(file) && !file.includes('*')) {
+      const lastIndex = file.lastIndexOf(path.extname(file))
+      const excludeExtFile = file.substring(0, lastIndex)
+      if (!file.startsWith('.') && !file.startsWith('/')) {
+        resultExports[`./${file}`] = `./${file}`
+        resultExports[`./${excludeExtFile}`] = `./${file}`
+      } else if (file.startsWith('/')) {
+        resultExports[`/${file}`] = `/${file}`
+        resultExports[`/${excludeExtFile}`] = `/${file}`
+      } else if (file.startsWith('.')) {
+        resultExports[file] = file
+        resultExports[excludeExtFile] = file
+      }
+    }
+  }
+
   resultExports = await resolveExportsDirectory(resultExports, root)
 
   resultExports = await handleWildcardExports(resultExports, root)
 
-  const mergedCjsExports = await createCjsField(resultExports, root)
-  Object.assign(resultExports, mergedCjsExports, {
-    './package.json': './package.json.js',
-    './package.json.js!cjs': './package.json.js',
-  })
+  //   const mergedCjsExports = await createCjsField(resultExports, root)
+  Object.assign(
+    resultExports,
+    //  mergedCjsExports,
+    {
+      './package.json': './package.json.js',
+      // './package.json.js!cjs': './package.json.js',
+    },
+  )
 
   return resultExports
 }
@@ -288,30 +318,30 @@ async function resolveFiles(
   return Array.from(new Set(files)).sort()
 }
 
-export async function createCjsField(
-  resultExports: Record<string, any>,
-  root: string,
-) {
-  await init
-  const values = recursionExportsValues(resultExports)
-  const result: Record<string, any> = {}
+// export async function createCjsField(
+//   resultExports: Record<string, any>,
+//   root: string,
+// ) {
+//   await init
+//   const values = recursionExportsValues(resultExports)
+//   const result: Record<string, any> = {}
 
-  await Promise.all(
-    values.map((item) => {
-      const filePath = path.resolve(root, item)
-      if (fs.existsSync(filePath)) {
-        // const content = fs.readFileSync(filePath, { encoding: 'utf-8' })
-        const [, _exports] = parse(
-          fs.readFileSync(filePath, { encoding: 'utf-8' }),
-        )
+//   await Promise.all(
+//     values.map((item) => {
+//       const filePath = path.resolve(root, item)
+//       if (fs.existsSync(filePath)) {
+//         // const content = fs.readFileSync(filePath, { encoding: 'utf-8' })
+//         const [, _exports] = parse(
+//           fs.readFileSync(filePath, { encoding: 'utf-8' }),
+//         )
 
-        const isCjs = _exports.length === 0
-        if (isCjs) {
-          result[`${item}!cjs`] = item
-        }
-      }
-      return true
-    }),
-  )
-  return result
-}
+//         const isCjs = _exports.length === 0
+//         if (isCjs) {
+//           result[`${item}!cjs`] = item
+//         }
+//       }
+//       return true
+//     }),
+//   )
+//   return result
+// }

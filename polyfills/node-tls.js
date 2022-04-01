@@ -1,5 +1,5 @@
 function notImplemented(name) {
-  throw new Error(`[esm.sh] tls: '${name}' is not implemented`)
+  throw new Error(`[esm] tls: '${name}' is not implemented`)
 }
 
 export class CryptoStream {

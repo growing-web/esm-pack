@@ -65,11 +65,11 @@ export class EsmService {
   ) {
     const filePath = path.join(
       BUILDS_DIR,
-      `${packageName}@${packageVersion}`,
+      `${packageName}/${packageVersion}`,
       filename,
     )
 
-    if (!fs.existsSync(filePath)) {
+    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
       throw new Error404Exception('Not Found.')
     }
 

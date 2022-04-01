@@ -1,5 +1,5 @@
 function notImplemented(name) {
-  throw new Error(`[esm.sh] inspector: '${name}' is not implemented`)
+  throw new Error(`[esm] inspector: '${name}' is not implemented`)
 }
 
 export class Session {

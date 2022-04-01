@@ -103,7 +103,7 @@ export async function extractTarball(
     progress(
       request({
         url: tarballURL,
-        timeout: 10000,
+        timeout: 100000,
       }),
     )
       .on('progress', progressFunc)

@@ -4,7 +4,7 @@ export const POLYFILL_VERSION = '1.0.0'
 
 export const POLYFILL_PACKAGE_NAME = '__internal__/polyfills'
 
-export const POLYFILL_DIR = `${POLYFILL_PACKAGE_NAME}@${POLYFILL_VERSION}`
+export const POLYFILL_DIR = `${POLYFILL_PACKAGE_NAME}/${POLYFILL_VERSION}`
 
 export const POLYFILL_PREFIX = `/esm/${POLYFILL_DIR}`
 

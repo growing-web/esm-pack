@@ -1,5 +1,5 @@
 function notImplemented(name) {
-  throw new Error(`[esm.sh] net: '${name}' is not implemented`)
+  throw new Error(`[esm] net: '${name}' is not implemented`)
 }
 
 export class BlockList {

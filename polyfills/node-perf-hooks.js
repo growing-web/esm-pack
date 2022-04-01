@@ -1,5 +1,5 @@
 function notImplemented(name) {
-  throw new Error(`[esm.sh] pref_hooks: '${name}' is not implemented`)
+  throw new Error(`[esm] pref_hooks: '${name}' is not implemented`)
 }
 
 export const performance = window.performance
