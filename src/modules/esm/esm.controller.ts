@@ -24,7 +24,6 @@ export class EsmController {
         .send(`Cannot find "${filename}" in ${packageName}`)
     } else {
       const tags = ['file']
-
       const ext = path.extname(entry.path).replace(/^\./, '')
       if (ext) {
         tags.push(`${ext}-file`)
@@ -34,7 +33,10 @@ export class EsmController {
         .set({
           'Content-Type': getContentTypeHeader(entry.contentType),
           'Content-Length': entry.size,
-          'Cache-Control': 'public, max-age=31536000', // 1 year
+          'Cache-Control':
+            path.basename(entry.path) === '_error.log'
+              ? 'no-store'
+              : 'public, max-age=31536000', // 1 year
           'Last-Modified': entry.lastModified,
           ETag: etag(entry.content),
           'Cache-Tag': tags.join(', '),

@@ -1,12 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { extractTarball, getTarballURL } from '../../utils/npm'
 import { PackageJson, writePackageJSON } from 'pkg-types'
-// import { build } from './core/build'
-import {
-  //   validatePackageConfig,
-  validatePackagePathname,
-  //   validatePackageVersion,
-} from '../../utils/validate'
+import { validatePackagePathname } from '../../utils/validate'
 import AsyncLock from 'async-lock'
 import validateNpmPackageName from 'validate-npm-package-name'
 import fs from 'fs-extra'
@@ -23,16 +18,9 @@ import {
 } from '../../constants'
 import { resolvePackage } from './core/resolvePackage'
 import { build as rollupBuild } from './core/rollupBuild'
+import { outputErrorLog } from '../../utils/errorLog'
 
 const lock = new AsyncLock()
-
-// ;(() => {
-//   // init polyfills
-//   const polyfillsDir = path.join(BUILDS_DIR, POLYFILL_DIR)
-//   if (!fs.existsSync(polyfillsDir)) {
-//     fs.copy(path.join(process.cwd(), 'polyfills'), polyfillsDir)
-//   }
-// })()
 
 @Injectable()
 export class BuildService {
@@ -43,20 +31,24 @@ export class BuildService {
     const { packageName, packageVersion } = await validatePackagePathname(
       pathname,
     )
-    await lock.acquire(
-      `${packageName}@${packageVersion}`,
-      this.build.bind(this, packageName, packageVersion),
-    )
+    return lock
+      .acquire(
+        `${packageName}@${packageVersion}`,
+        this.build.bind(this, packageName, packageVersion),
+      )
+      .catch((err) => {
+        outputErrorLog(err, packageName, packageVersion)
+      })
   }
 
   async build(packageName: string, packageVersion: string) {
-    await validateNpmPackageName(packageName)
+    validateNpmPackageName(packageName)
 
     // await validatePackageVersion(packageName, packageVersion)
 
     // await validatePackageConfig(packageName, packageVersion)
 
-    const libDir = `${packageName}/${packageVersion}`
+    const libDir = `${packageName}@${packageVersion}`
     const buildsPath = this.getBuildsPath(libDir)
 
     const isBuilded = fs.existsSync(path.join(buildsPath, 'package.json'))

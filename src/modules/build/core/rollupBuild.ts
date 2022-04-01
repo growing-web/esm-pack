@@ -1,17 +1,11 @@
 import { rollup } from 'rollup'
 import nodePolyfills from 'rollup-plugin-node-polyfills'
-// import { terser } from 'rollup-plugin-terser'
 import commonjs from '@rollup/plugin-commonjs'
-// import replace from '@rollup/plugin-replace'
 import resolve from '@rollup/plugin-node-resolve'
 import esbuild from 'rollup-plugin-esbuild'
 import path from 'pathe'
 import fs from 'fs-extra'
-// import { init, parse } from 'es-module-lexer'
-// import { parse as cjsParse } from 'cjs-module-lexer'
-// import type { PackageJson } from 'pkg-types'
 import rollupJSONPlugin from '@rollup/plugin-json'
-
 import { rawPlugin } from './plugins/raw'
 
 export async function build(
@@ -39,7 +33,6 @@ async function bundle(
   const NODE_ENV = JSON.stringify(env)
   const bundle = await rollup({
     input: input,
-    // preserveEntrySignatures: 'strict',
     onwarn: (warning, handler) => {
       if (warning.code === 'UNRESOLVED_IMPORT') {
         return
@@ -70,10 +63,6 @@ async function bundle(
       return true
     },
     plugins: [
-      //   replace({
-      //     preventAssignment: true,
-      //     'process.env.NODE_ENV': NODE_ENV,
-      //   }),
       (nodePolyfills as any)(),
       resolve({
         preferBuiltins: true,
@@ -93,7 +82,6 @@ async function bundle(
       commonjs({
         extensions: ['.ts', '.tsx', '.mjs', '.cjs', '.js', '.jsx', '.json'],
         // esmExternals: true,
-        // ignoreGlobal: true,
       }),
       {
         renderDynamicImport() {
@@ -101,14 +89,12 @@ async function bundle(
         },
       },
       rawPlugin(),
-      //   terser({ format: { comments: false } }),
     ],
   })
 
   const { output } = await bundle.generate({
     dir: buildPath,
     indent: true,
-    // inlineDynamicImports: true,
     esModule: true,
     exports: 'auto',
     preferConst: true,
@@ -116,6 +102,7 @@ async function bundle(
     freeze: false,
     format: 'esm',
     sourcemap: true,
+    banner: `/* rollup bundle: ${env}. */\n`,
     entryFileNames: (chunk) => {
       const fileName = path.relative(cachePath, chunk.facadeModuleId!)
       if (fileName.endsWith('.js') || fileName.endsWith('.mjs')) {

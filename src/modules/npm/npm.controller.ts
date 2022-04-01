@@ -9,6 +9,12 @@ export class NpmController {
   @Get('npm/*')
   async maxSatisfying(@Param() param, @Res() res: Response) {
     const ret = await this.npmService.maxSatisfyingVersion(param['0'])
-    res.status(200).type('text').send(ret)
+    res
+      .status(200)
+      //   .set({
+      //     'Cache-Control': 'no-store',
+      //   })
+      .type('text')
+      .send(ret)
   }
 }

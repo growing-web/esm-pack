@@ -8,8 +8,6 @@ import {
 } from '@nestjs/common'
 import { Request } from 'express'
 import { Logger } from '../../plugins'
-import { ResponseWrapper } from '../../utils/response'
-import { BasicException } from '../exception/basicException'
 import {
   Error403Exception,
   Error401Exception,
@@ -26,40 +24,48 @@ export class AppExceptionFilter implements ExceptionFilter {
 
     let logMsg = ''
 
-    if (exception instanceof Error403Exception) {
-      logMsg = exception.getErrorMessage()
-      response.status(HttpStatus.FORBIDDEN).type('text').send({ error: logMsg })
-    } else if (exception instanceof Error401Exception) {
-      logMsg = exception.getErrorMessage()
-      response
-        .status(HttpStatus.UNAUTHORIZED)
-        .type('text')
-        .send({ error: logMsg })
-    } else if (exception instanceof Error404Exception) {
-      logMsg = exception.getErrorMessage()
-      response.status(HttpStatus.NOT_FOUND).type('text').send({ error: logMsg })
-    } else if (exception instanceof Error500Exception) {
-      logMsg = exception.getErrorMessage()
+    const exceptions = [
+      {
+        instance: Error401Exception,
+        code: HttpStatus.UNAUTHORIZED,
+      },
+      {
+        instance: Error403Exception,
+        code: HttpStatus.FORBIDDEN,
+      },
+      {
+        instance: Error404Exception,
+        code: HttpStatus.NOT_FOUND,
+      },
+      {
+        instance: Error500Exception,
+        code: HttpStatus.INTERNAL_SERVER_ERROR,
+      },
+      {
+        instance: NotFoundException,
+        code: HttpStatus.NOT_FOUND,
+      },
+    ]
+
+    let isMatch = false
+
+    for (const { instance, code } of exceptions) {
+      if (exception instanceof instance) {
+        // @ts-ignore
+        logMsg = exception.getErrorMessage()
+        if (exception instanceof NotFoundException) {
+          logMsg = 'NOT FOUND!'
+        }
+        isMatch = true
+        response.status(code).type('text').send({ error: logMsg })
+      }
+    }
+
+    if (!isMatch) {
       response
         .status(HttpStatus.INTERNAL_SERVER_ERROR)
         .type('text')
-        .send({ error: logMsg })
-    } else if (exception instanceof BasicException) {
-      logMsg = exception.getErrorMessage()
-      response
-        .status(HttpStatus.OK)
-        .json(ResponseWrapper.error(`${logMsg}`, exception.getErrorCode()))
-    } else if (exception instanceof NotFoundException) {
-      response.status(HttpStatus.NOT_FOUND).type('text').send('NOT FOUND!')
-    } else {
-      logMsg = '[Error]:' + exception
-      response
-        .status(HttpStatus.OK)
-        .json(
-          ResponseWrapper.error(
-            '[Error]: Please contact the administrator to deal with it!',
-          ),
-        )
+        .send({ error: exception.message })
     }
 
     const { url, method } = request

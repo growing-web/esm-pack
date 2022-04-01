@@ -9,10 +9,5 @@ declare namespace NodeJS {
     API_PREFIX: string
     THROTTLE_TTL: string
     THROTTLE_LIMIT: string
-
-    OSS_ACCESS_ID: string
-    OSS_ACCESS_SECRET: string
-    OSS_REGION: string
-    OSS_BUCKET: string
   }
 }

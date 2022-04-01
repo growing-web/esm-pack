@@ -4,9 +4,9 @@ import {
   Error500Exception,
 } from '../common/exception'
 import { parsePackagePathname } from './parsePackagePathname'
-import validatePackageName from 'validate-npm-package-name'
 import { resolvePackageVersion } from './resolvePackageVersion'
 import { getPackageConfig } from './npm'
+import validatePackageName from 'validate-npm-package-name'
 
 export async function validatePackagePathname(pathname?: string) {
   if (!pathname) {

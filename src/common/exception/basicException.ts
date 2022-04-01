@@ -1,12 +1,11 @@
 import { HttpException, HttpStatus } from '@nestjs/common'
-import { HttpResultCodeEnum } from '../../constants/http'
 
 export class BasicException extends HttpException {
   protected errorMessage: string
-  protected errorCode: HttpResultCodeEnum
+  protected errorCode: number
   constructor(
     errorMessage: string,
-    errorCode: HttpResultCodeEnum = HttpResultCodeEnum.FAIL,
+    errorCode = -1,
     statusCode: HttpStatus = HttpStatus.OK,
   ) {
     super(errorMessage, statusCode)
@@ -15,7 +14,7 @@ export class BasicException extends HttpException {
     this.errorCode = errorCode
   }
 
-  getErrorCode(): HttpResultCodeEnum {
+  getErrorCode(): number {
     return this.errorCode
   }
 

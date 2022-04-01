@@ -4,19 +4,18 @@ import fs from 'fs-extra'
 import {
   validatePackagePathname,
   validateNpmPackageName,
-  validatePackageVersion,
-  validatePackageConfig,
 } from '../../utils/validate'
 import {
   BUILDS_DIR,
-  POLYFILL_DIR,
-  POLYFILL_PACKAGE_NAME,
-  POLYFILL_VERSION,
+  //   POLYFILL_DIR,
+  //   POLYFILL_PACKAGE_NAME,
+  //   POLYFILL_VERSION,
 } from '../../constants'
 import { Error404Exception } from '../../common/exception'
 import { bufferStream } from '../../utils/bufferStream'
-import getContentType from '../../utils/getContentType'
 import { getIntegrity } from '../../utils/getIntegrity'
+import getContentType from '../../utils/getContentType'
+import { outputErrorLog } from '../../utils/errorLog'
 
 @Injectable()
 export class EsmService {
@@ -27,27 +26,31 @@ export class EsmService {
     const { packageName, packageVersion, filename } =
       await validatePackagePathname(pathname)
 
-    if (pathname?.startsWith(POLYFILL_DIR)) {
-      const entry = await this.findEntry(
-        POLYFILL_PACKAGE_NAME,
-        POLYFILL_VERSION,
-        pathname.replace(`${POLYFILL_PACKAGE_NAME}@${POLYFILL_VERSION}/`, ''),
-      )
+    // if (pathname?.startsWith(POLYFILL_DIR)) {
+    //   const entry = await this.findEntry(
+    //     POLYFILL_PACKAGE_NAME,
+    //     POLYFILL_VERSION,
+    //     pathname.replace(`${POLYFILL_PACKAGE_NAME}@${POLYFILL_VERSION}/`, ''),
+    //   )
 
-      return {
-        packageName,
-        packageVersion,
-        filename,
-        entry,
-      }
+    //   return {
+    //     packageName,
+    //     packageVersion,
+    //     filename,
+    //     entry,
+    //   }
+    // }
+
+    if (packageName === 'undefined') {
+      throw new Error404Exception()
     }
 
     await validateNpmPackageName(packageName)
 
-    await validatePackageVersion(packageName, packageVersion)
-
-    await validatePackageConfig(packageName, packageVersion)
-
+    // await Promise.all([
+    //   validatePackageVersion(packageName, packageVersion),
+    //   validatePackageConfig(packageName, packageVersion),
+    // ])
     const entry = await this.findEntry(packageName, packageVersion, filename)
 
     return {
@@ -65,7 +68,7 @@ export class EsmService {
   ) {
     const filePath = path.join(
       BUILDS_DIR,
-      `${packageName}/${packageVersion}`,
+      `${packageName}@${packageVersion}`,
       filename,
     )
 
@@ -73,18 +76,22 @@ export class EsmService {
       throw new Error404Exception('Not Found.')
     }
 
-    const readerStream: any = fs.createReadStream(filePath)
-    const content = await bufferStream(readerStream)
+    try {
+      const readerStream: any = fs.createReadStream(filePath)
+      const content = await bufferStream(readerStream)
 
-    const { mtime, size } = fs.statSync(readerStream.path)
-    const entry = {
-      content,
-      path: readerStream.path,
-      contentType: getContentType(readerStream.path),
-      integrity: getIntegrity(content),
-      lastModified: mtime.toUTCString(),
-      size: size,
+      const { mtime, size } = fs.statSync(readerStream.path)
+      const entry = {
+        content,
+        path: readerStream.path,
+        contentType: getContentType(readerStream.path),
+        integrity: getIntegrity(content),
+        lastModified: mtime.toUTCString(),
+        size: size,
+      }
+      return entry
+    } catch (error) {
+      outputErrorLog(error, packageName, packageVersion)
     }
-    return entry
   }
 }

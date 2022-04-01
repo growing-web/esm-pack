@@ -6,7 +6,6 @@ import _ from 'lodash'
 import { normalizeExport, fileExits } from '../../../utils'
 import path from 'path'
 import fs from 'fs-extra'
-// import { init, parse } from 'es-module-lexer'
 
 export async function resolvePackage(cachePath: string) {
   let pkg = await readPackageJSON(cachePath)
