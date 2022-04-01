@@ -1,4 +1,4 @@
-FROM registry.cn-hangzhou.aliyuncs.com/gaodingx/docker-base-images:node-16-onbuild
+FROM node:16
 
 MAINTAINER vben
 
