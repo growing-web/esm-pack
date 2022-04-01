@@ -1,22 +1,20 @@
 import { Injectable } from '@nestjs/common'
 import { extractTarball, getTarballURL } from '../../utils/npm'
-import { PackageJson, readPackageJSON, writePackageJSON } from 'pkg-types'
-import { resolveExports } from './core/resolveExports'
-import { resolveFiles } from './core/resolveFiles'
+import { PackageJson, writePackageJSON } from 'pkg-types'
 import { build } from './core/build'
-// import { init } from 'es-module-lexer'
-import validateNpmPackageName from 'validate-npm-package-name'
-import fs from 'fs-extra'
-import path from 'path'
 import {
   validatePackageConfig,
   validatePackagePathname,
   validatePackageVersion,
 } from '../../utils/validate'
 import AsyncLock from 'async-lock'
+import validateNpmPackageName from 'validate-npm-package-name'
+import fs from 'fs-extra'
+import path from 'path'
 import { Error403Exception } from '../../common/exception/errorStateException'
 import { CACHE_DIR, ETC_DIR, POLYFILL_DIR } from '../../constants'
 import { BUILDS_DIR } from '../../constants/index'
+import { resolvePackage } from './core/resolvePackage'
 
 const lock = new AsyncLock()
 
@@ -40,15 +38,15 @@ export class BuildService {
 
     await lock.acquire(
       `${packageName}@${packageVersion}`,
-      this.build.bind(this, pathname),
+      this.build.bind(this, pathname, packageName, packageVersion),
     )
   }
 
-  async build(pathname?: string) {
-    const { packageName, packageVersion } = await validatePackagePathname(
-      pathname,
-    )
-
+  async build(
+    pathname: string | undefined,
+    packageName: string,
+    packageVersion: string,
+  ) {
     await validateNpmPackageName(packageName)
 
     await validatePackageVersion(packageName, packageVersion)
@@ -95,11 +93,7 @@ export class BuildService {
   }
 
   private async rewritePackage(cachePath: string) {
-    const pkg = await readPackageJSON(cachePath)
-    const pkgExports = await resolveExports(pkg, cachePath)
-    const files = await resolveFiles(pkg, cachePath, pkgExports)
-    pkg.exports = pkgExports
-    pkg.files = files
+    const pkg = await resolvePackage(cachePath)
     await writePackageJSON(path.join(cachePath, 'package.json'), pkg)
     return pkg
   }

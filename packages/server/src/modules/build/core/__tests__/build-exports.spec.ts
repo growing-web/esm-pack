@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { buildExports } from '../buildExports'
+import { buildExports } from '../resolvePackage'
 import path from 'path'
 import { readPackageJSON } from 'pkg-types'
 

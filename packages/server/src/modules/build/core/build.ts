@@ -2,6 +2,7 @@ import esbuild, { BuildOptions } from 'esbuild'
 import fs from 'fs-extra'
 import MagicString from 'magic-string'
 import { POLYFILL_PREFIX } from '../../../constants'
+import path from 'pathe'
 // import { parse as cjsParse } from 'cjs-esm-exports'
 
 export async function build(
@@ -49,6 +50,8 @@ export async function build(
   //     return true
   //   })
 
+  const external: string[] = []
+
   const minify = true
   //   const externalSet = new Set<string>()
   //   const external: string[] = []
@@ -65,19 +68,7 @@ export async function build(
     minifyWhitespace: minify,
     minify: minify,
     // external: importers,
-    define: {
-      global: '__global$',
-      'global.setImmediate': '__setImmediate$',
-      'global.clearImmediate': 'clearTimeout',
-      'global.process': JSON.stringify('__Process$'),
-      process: JSON.stringify('__Process$'),
-      'require.resolve': '__rResolve$',
-      'global.require.resolve': '__rResolve$',
-      'global.Buffer': JSON.stringify('__Buffer$'),
-      Buffer: JSON.stringify('__Buffer$'),
-      'process.env.NODE_ENV': JSON.stringify('production'),
-      'global.process.env.NODE_ENV': JSON.stringify('production'),
-    },
+    define: resolveDefine(),
     plugins: [
       {
         name: 'esm-resolver',
@@ -87,11 +78,12 @@ export async function build(
               return { external: true }
             }
 
-            // const specifier = args.path
-            //   .replace(/\/$/, '')
-            //   .replace(/^(node:)/, '')
+            const specifier = args.path
+              .replace(/\/$/, '')
+              .replace(/^(node:)/, '')
 
             if (!args.path.startsWith('.') && !args.path.startsWith('/')) {
+              external.push(specifier)
               return { external: true }
             }
             return {}
@@ -102,6 +94,7 @@ export async function build(
   }
 
   const result = await esbuild.build(options)
+
   if (result.errors.length > 0) {
     const msg = result.errors[0].text
     console.error('esbuild: ', msg)
@@ -112,6 +105,11 @@ export async function build(
     const outputContent = file.contents
     let content = Buffer.from(outputContent).toString()
     const s = new MagicString(content)
+
+    if (path.basename(file.path).includes('package.js')) {
+      file.path = file.path.replace('package.js', 'package.json.js')
+    }
+
     if (file.path.endsWith('.js')) {
       if (content.includes('__Process$')) {
         s.prependLeft(
@@ -144,9 +142,33 @@ export async function build(
       if (content.includes('__rResolve$')) {
         s.prependLeft(0, `var __rResolve$ = p => p;`)
       }
+      s.prependLeft(0, `/* esbuild bundle. */\n`)
       content = s.toString()
       content = content.replace(`typeof window<"u"`, `typeof document<"u"`)
     }
     fs.outputFileSync(file.path, content)
   }
+}
+
+function resolveDefine() {
+  const NODE_ENV = JSON.stringify('production')
+
+  const define: Record<string, string> = {
+    process: '__Process$',
+    Buffer: '__Buffer$',
+    setImmediate: '__setImmediate$',
+    clearImmediate: 'clearTimeout',
+    'require.resolve': '__rResolve$',
+    'process.env.NODE_ENV': NODE_ENV,
+
+    global: '__global$',
+    'global.clearImmediate': 'clearTimeout',
+    'global.process': '__Process$',
+    'global.process.env.NODE_ENV': NODE_ENV,
+    'global.require.resolve': '__rResolve$',
+    'global.Buffer': '__Buffer$',
+    'global.setImmediate': '__setImmediate$',
+  }
+
+  return define
 }

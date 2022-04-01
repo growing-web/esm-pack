@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { resolveExports } from '../resolveExports'
+import { resolveExports } from '../resolvePackage'
 import path from 'path'
 import { readPackageJSON } from 'pkg-types'
 
@@ -14,8 +14,8 @@ describe('resolve exports test.', () => {
     expect(ret).toEqual({
       '.': './index.js',
       './package.json': './package.json.js',
-      './index.js!cjs': './index.js',
-      './package.json.js!cjs': './package.json.js',
+      //   './index.js!cjs': './index.js',
+      //   './package.json.js!cjs': './package.json.js',
     })
   })
 
@@ -41,8 +41,8 @@ describe('resolve exports test.', () => {
       './package.json': './package.json.js',
       './dist/a.js': './dist/a.js',
       './dist/a': './dist/a.js',
-      './dist/a.js!cjs': './dist/a.js',
-      './package.json.js!cjs': './package.json.js',
+      //   './dist/a.js!cjs': './dist/a.js',
+      //   './package.json.js!cjs': './package.json.js',
     })
   })
 })
@@ -55,8 +55,8 @@ describe('resolve libs test.', () => {
     expect(ret).toEqual({
       '.': './index.js',
       './package.json': './package.json.js',
-      './index.js!cjs': './index.js',
-      './package.json.js!cjs': './package.json.js',
+      //   './index.js!cjs': './index.js',
+      //   './package.json.js!cjs': './package.json.js',
     })
   })
 })
