@@ -52,9 +52,10 @@ export class AppExceptionFilter implements ExceptionFilter {
     for (const { instance, code } of exceptions) {
       if (exception instanceof instance) {
         // @ts-ignore
-        logMsg = exception.getErrorMessage()
         if (exception instanceof NotFoundException) {
           logMsg = 'NOT FOUND!'
+        } else {
+          logMsg = exception.getErrorMessage()
         }
         isMatch = true
         response.status(code).type('text').send({ error: logMsg })
