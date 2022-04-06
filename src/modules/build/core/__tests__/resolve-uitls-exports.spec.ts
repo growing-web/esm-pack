@@ -32,4 +32,23 @@ describe('resolve utils lib exports test.', () => {
       './package.json.js!cjs': './package.json.js',
     })
   })
+
+  test('@vue/devtools-api 6.1.4', async () => {
+    const root = path.join(__dirname, './fixtures/packages/vue-devtools-api/')
+    const pkg = fs.readJSONSync(path.join(root, 'main.package.json'))
+    const exp = await resolveExports(pkg, root)
+
+    expect(exp).toEqual({
+      '.': {
+        browser: './lib/esm/index.js',
+        module: './lib/esm/index.js',
+        default: './lib/cjs/index.js',
+      },
+      './lib/cjs/index.js': './lib/cjs/index.js',
+      './lib/esm/index.js': './lib/esm/index.js',
+      './lib/cjs/index.js!cjs': './lib/cjs/index.js',
+      './package.json': './package.json.js',
+      './package.json.js!cjs': './package.json.js',
+    })
+  })
 })

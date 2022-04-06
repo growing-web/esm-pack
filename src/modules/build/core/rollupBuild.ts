@@ -16,7 +16,7 @@ export async function build(
 ) {
   const errorExternal: string[] = []
 
-  const inputObj = {}
+  const inputObj: Record<string, string> = {}
   for (const mod of buildFiles) {
     let basename = path.basename(mod)
     if (basename.indexOf('.') !== -1)
@@ -27,29 +27,26 @@ export async function build(
     inputObj[inputName] = mod
   }
 
-  const results = await bundle(
-    inputObj,
-    buildPath,
-    cachePath,
-    errorExternal,
-    'production',
-  )
+  //   const results =
+  await bundle(inputObj, buildPath, cachePath, errorExternal, 'production')
 
   //   await Promise.all(
   //     buildFiles.map((input) =>
   //       bundle(input, buildPath, cachePath, errorExternal, 'production'),
   //     ),
   //   )
-  const devFiles = results.flat()
 
-  await Promise.all(
-    devFiles.map((input) =>
-      bundle(input, buildPath, cachePath, errorExternal, 'development'),
-    ),
-  )
+  // TODO
+  //   const devFiles = results.flat()
+
+  //   await Promise.all(
+  //     devFiles.map((input) =>
+  //       bundle(input, buildPath, cachePath, errorExternal, 'development'),
+  //     ),
+  //   )
 }
 async function bundle(
-  input: any,
+  input: Record<string, string>,
   buildPath: string,
   cachePath: string,
   errorExternal: string[],
@@ -107,6 +104,7 @@ async function bundle(
       if (id.startsWith('data:')) {
         return true
       }
+
       return true
     },
     plugins: [
@@ -121,6 +119,9 @@ async function bundle(
         include: /\.[m|c]?js$/,
         sourceMap: true,
         minify: true,
+        minifyWhitespace: true,
+        minifyIdentifiers: true,
+        minifySyntax: true,
         // legalComments: 'none',
         define: {
           'process.env.NODE_ENV': NODE_ENV,
@@ -165,7 +166,6 @@ async function bundle(
     freeze: false,
     format: 'esm',
     sourcemap: true,
-    banner: `/* rollup bundle: ${env}. */`,
     entryFileNames: (chunk) => {
       const fileName = path.relative(cachePath, chunk.facadeModuleId!)
       if (fileName.endsWith('.js') || fileName.endsWith('.mjs')) {
@@ -179,9 +179,13 @@ async function bundle(
     output.map((chunk) => {
       if (chunk.type === 'chunk') {
         return Promise.all([
-          fs.outputFile(path.join(buildPath, chunk.fileName), chunk.code, {
-            encoding: 'utf8',
-          }),
+          fs.outputFile(
+            path.join(buildPath, chunk.fileName),
+            `/* rollup bundle: ${env}. */\n${chunk.code}`,
+            {
+              encoding: 'utf8',
+            },
+          ),
           fs.outputFile(
             path.join(buildPath, `${chunk.fileName}.map`),
             chunk.map?.toString(),

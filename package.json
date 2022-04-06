@@ -143,7 +143,6 @@
     "prettier": "^2.6.2",
     "rimraf": "^3.0.2",
     "rollup-plugin-esbuild": "^4.8.2",
-    "rollup-plugin-terser": "^7.0.2",
     "ts-node": "^10.7.0",
     "tsconfig-paths": "^3.14.1",
     "typescript": "^4.6.3",

@@ -130,16 +130,23 @@ export async function resolveExports(pkg: PackageJson, root: string) {
       const normalizepkgModule = normalizeExport(pkgModule)
       const addonCjsMainFiles = await createCjsMainFiles(root, normalizePkgMain)
       cjsMainFiles.push(...addonCjsMainFiles)
-      Object.assign(resultExports, await joinFilesToExports(root, pkgFiles))
-
-      resultExports['./package.json'] = './package.json.js'
 
       Object.assign(resultExports, {
         '.': await resolveMainAndModule(
           root,
           normalizePkgMain,
           normalizepkgModule,
+          pkgBrowser,
         ),
+      })
+
+      if (!pkgBrowser) {
+        Object.assign(resultExports, await joinFilesToExports(root, pkgFiles))
+      }
+
+      resultExports['./package.json'] = './package.json.js'
+
+      Object.assign(resultExports, {
         [normalizePkgMain]: await resolveMain(root, normalizePkgMain),
         [normalizepkgModule]: normalizepkgModule,
       })
@@ -240,7 +247,7 @@ async function handlerPkgBrowser(
   pkgBrowser: Recordable | undefined,
   pkgExports: Recordable,
 ) {
-  if (!pkgBrowser || _.isString()) {
+  if (!pkgBrowser || _.isString(pkgBrowser)) {
     return pkgExports
   }
 
@@ -422,11 +429,20 @@ async function resolveMainAndModule(
   root: string,
   pkgMain: string,
   pkgModule: string,
+  pkgBrowser: any,
 ) {
-  return {
+  const result = {
     module: normalizeExport(pkgModule),
     default: await resolveMain(root, pkgMain),
   }
+
+  if (_.isString(pkgBrowser)) {
+    Object.assign(result, {
+      browser: normalizeExport(pkgBrowser),
+    })
+  }
+
+  return result
 }
 
 async function resolveMain(root: string, pkgMain: string) {
