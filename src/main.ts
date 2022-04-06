@@ -26,12 +26,12 @@ async function bootstrap() {
     app.use(morgan('dev'))
   }
 
-  app.enableCors({
-    origin: (origin, cb) => {
-      cb(null, true)
-    },
-    credentials: true,
-  })
+  //   app.enableCors({
+  //     origin: (origin, cb) => {
+  //       cb(null, true)
+  //     },
+  //     credentials: true,
+  //   })
 
   app.use(helmet())
   app.use(compression())
