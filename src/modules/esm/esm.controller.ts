@@ -9,7 +9,7 @@ import { getContentTypeHeader } from '../../utils/getContentTypeHeader'
 export class EsmController {
   constructor(private readonly esmService: EsmService) {}
 
-  @Get('esm/*')
+  @Get('npm:*')
   async resolveEsmFile(@Param() param, @Res() res: Response) {
     const { entry, filename, packageName } =
       await this.esmService.resolveEsmFile(param['0'])

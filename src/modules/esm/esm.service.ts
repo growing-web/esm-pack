@@ -4,17 +4,14 @@ import fs from 'fs-extra'
 import {
   validatePackagePathname,
   validateNpmPackageName,
-} from '../../utils/validate'
-import { BUILDS_DIR } from '../../constants'
-import { Error404Exception } from '../../common/exception'
-import { bufferStream } from '../../utils/bufferStream'
-import { getIntegrity } from '../../utils/getIntegrity'
-import getContentType from '../../utils/getContentType'
-import { outputErrorLog } from '../../utils/errorLog'
-import {
-  fileResolveByExtension,
-  resolveEntryByDir,
-} from '../../utils/fileResolver'
+} from '@/utils/validate'
+import { BUILDS_DIR } from '@/constants'
+import { Error404Exception } from '@/common/exception'
+import { bufferStream } from '@/utils/bufferStream'
+import { getIntegrity } from '@/utils/getIntegrity'
+import getContentType from '@/utils/getContentType'
+import { outputErrorLog } from '@/utils/errorLog'
+import { fileResolveByExtension, resolveEntryByDir } from '@/utils/fileResolver'
 
 @Injectable()
 export class EsmService {

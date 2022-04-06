@@ -6,6 +6,7 @@ import { NoQueryMiddleware } from '../../common/middleware'
 @Module({
   controllers: [EsmController],
   providers: [EsmService],
+  exports: [EsmService],
 })
 export class EsmModule {
   configure(consumer: MiddlewareConsumer) {

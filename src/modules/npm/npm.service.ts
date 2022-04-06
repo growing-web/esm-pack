@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common'
-import { Error404Exception } from '../../common/exception'
-import { getVersionsAndTags } from '../../utils/npm'
+import { Error404Exception } from '@/common/exception'
+import { getVersionsAndTags } from '@/utils/npm'
 import { SemverRange } from 'sver'
 
 import {
   validatePackagePathname,
   validateNpmPackageName,
-} from '../../utils/validate'
+} from '@/utils/validate'
 
 @Injectable()
 export class NpmService {
