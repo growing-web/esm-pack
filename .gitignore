@@ -21,3 +21,5 @@ coverage
 logs
 *.local
 .esmd
+.esmd-*
+!**/__tests__/**/dist

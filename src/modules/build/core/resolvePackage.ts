@@ -1,287 +1,190 @@
 import type { PackageJson } from 'pkg-types'
 import { readPackageJSON } from 'pkg-types'
-import { recursionExportsValues, recursionExportsRemoveDts } from './recursion'
+// import { recursionExportsValues, recursionExportsRemoveDts } from './recursion'
 import fg from 'fast-glob'
 import _ from 'lodash'
-import { normalizeExport, fileExits } from '../../../utils'
 import path from 'path'
+// import fs from 'fs-extra'
 import fs from 'fs-extra'
+import { fileResolveByExtension } from '@/utils/fileResolver'
+import { parse as cjsParse } from 'cjs-esm-exports'
+import { init as esInit, parse as esParse } from 'es-module-lexer'
+import { fileReader } from '@/utils/file'
+import { FILE_EXCLUDES, FILE_EXTENSIONS, FILES_IGNORE } from '@/constants/index'
+import { recursionExportsValues } from './recursion'
+
+type Recordable = Record<string, any>
+
+const DEFAULT_ENTRY = 'index.js'
+
+const IGNORE_KEYS = ['default', 'types', 'typings', 'development', 'browser']
+
+const JS_RE = /\.[m]?js$/
 
 export async function resolvePackage(cachePath: string) {
-  let pkg = await readPackageJSON(cachePath)
+  const pkg = await readPackageJSON(cachePath)
   // @ts-ignore
-  if (pkg.__ESMD__) {
+  if (pkg.__ESMD__ === true) {
     return pkg
   }
 
-  pkg = fixNpmPackage(pkg)
-
   const pkgExports = await resolveExports(pkg, cachePath)
+
   const files = await resolveFiles(pkg, cachePath, pkgExports)
   pkg.exports = pkgExports
   pkg.files = files
+
+  // pkg.imports
+  Object.assign(pkg, await resolveImports(pkg))
 
   // @ts-ignore
   pkg.__ESMD__ = true
   return pkg
 }
 
-function fixNpmPackage(pkg: PackageJson) {
-  const { exports: Exports, type } = pkg
-
-  if (_.isString(Exports)) {
-    if (type === 'module') {
-      pkg.module ||= Exports
-    } else {
-      pkg.main ||= Exports
-    }
-  } else {
-    const names = ['es2015', 'module', 'import', 'browser', 'worker']
-    if (type === 'module') {
-      names.push(...['production', 'default'])
-    }
-    for (const name of names) {
-      const value = Exports?.[name]
-      if (value && _.isString(value)) {
-        pkg.module ||= value
-      }
-    }
-
-    for (const name of ['require', 'node', 'default']) {
-      const value = Exports?.[name]
-      if (value && _.isString(value)) {
-        pkg.main ||= value
-      }
-    }
-    for (const [key, value] of Object.entries(Exports || {})) {
-      if (value && _.isString(value)) {
-        switch (key) {
-          case 'types':
-            pkg.types ||= value
-            break
-          case 'typings':
-            pkg.typings ||= value
-        }
-      }
-    }
+export async function resolveImports(pkg: Recordable) {
+  const { browser } = pkg
+  if (!browser || !_.isObject(browser)) {
+    return {}
   }
 
-  if (!pkg.module) {
-    if (pkg['jsnext:main']) {
-      pkg = pkg['jsnext:main']
-    } else if ((pkg as any).es2015) {
-      pkg = (pkg as any).es2015
-    } else if (
-      pkg.main &&
-      (pkg.type !== 'module' ||
-        pkg.main?.includes('/esm/') ||
-        pkg.main?.includes('/es/') ||
-        pkg.main?.endsWith('.mjs'))
-    ) {
-      pkg.module = pkg.main
-    }
-  }
+  const pkgBrowser: any = browser
 
-  if (pkg.types === '' && pkg.typings !== '') {
-    pkg.types = pkg.typings
+  const resultImport = pkgBrowser?.import ?? {}
+
+  for (const [key, value] of Object.entries(pkgBrowser)) {
+    const importKey = `#${key.replace(/^((\.+)?\/?)/, '')}`
+    if (resultImport[importKey]) {
+      continue
+    }
+    Object.assign(resultImport, {
+      [importKey]: {
+        browser: normalizeExport(value as string),
+        default: normalizeExport(key),
+      },
+    })
   }
-  return pkg
+  return { imports: resultImport }
 }
 
 export async function resolveExports(pkg: PackageJson, root: string) {
-  const { files: originFiles = [] } = pkg
+  let {
+    exports: pkgExports,
+    module: pkgModule,
+    main: pkgMain,
+    browser: pkgBrowser,
+    files: pkgFiles = [],
+  } = pkg
+  const cjsMainFiles: string[] = []
 
-  let resultExports = await buildExports(pkg, root)
+  const unStandard = !pkgExports && !pkgMain && !pkgModule
 
-  for (const file of originFiles) {
-    if (/(\.m?js)$/.test(file) && !file.includes('*')) {
-      const lastIndex = file.lastIndexOf(path.extname(file))
-      const excludeExtFile = file.substring(0, lastIndex)
-      if (!file.startsWith('.') && !file.startsWith('/')) {
-        resultExports[`./${file}`] = `./${file}`
-        resultExports[`./${excludeExtFile}`] = `./${file}`
-      } else if (file.startsWith('/')) {
-        resultExports[`/${file}`] = `/${file}`
-        resultExports[`/${excludeExtFile}`] = `/${file}`
-      } else if (file.startsWith('.')) {
-        resultExports[file] = file
-        resultExports[excludeExtFile] = file
+  // exports exits
+  if (pkgExports !== undefined && pkgExports !== null) {
+    // export include {"./*":"./*"}
+    if (_.isObject(pkgExports)) {
+      if (pkgExports['./*'] === './*') {
+        return addCjsFiledToExports({ root, pkgExports, cjsMainFiles })
+      }
+      pkgExports['./package.json'] = './package.json.js'
+    }
+    if (_.isString(pkgExports)) {
+      pkgExports = { '.': pkgExports }
+    }
+
+    for (const [key, pattern] of Object.entries(pkgExports)) {
+      if (key.includes('*') && _.isString(pattern) && pattern.includes('*')) {
+        await addMatchFileToExports(pattern, pkgExports, root)
+        continue
+      }
+      if (_.isObject(pattern)) {
+        await handleObjectPattern({
+          root,
+          pkgExports,
+          key,
+          pattern: pattern as Recordable,
+        })
       }
     }
-  }
 
-  resultExports = await resolveExportsDirectory(resultExports, root)
+    return addCjsFiledToExports({ root, pkgExports, cjsMainFiles })
+  } else if (!pkgExports) {
+    // const cjsManiFiles: string = []
 
-  resultExports = await handleWildcardExports(resultExports, root)
+    // no exports exist
+    const resultExports: Recordable = {}
 
-  //   const mergedCjsExports = await createCjsField(resultExports, root)
-  Object.assign(
-    resultExports,
-    //  mergedCjsExports,
-    {
-      './package.json': './package.json.js',
-      // './package.json.js!cjs': './package.json.js',
-    },
-  )
+    // module and main do not exist
+    if (!pkgModule && !pkgMain) {
+      const normalizePkgMain = normalizeExport(guessEntryFile(root, pkgFiles))
+      const addonCjsMainFiles = await createCjsMainFiles(root, normalizePkgMain)
+      cjsMainFiles.push(...addonCjsMainFiles)
 
-  return resultExports
-}
-
-async function resolveExportsDirectory(
-  resultExports: Record<string, any>,
-  root: string,
-) {
-  let values = recursionExportsValues(resultExports)
-  values = values.filter((item) => !item.includes('package.json'))
-
-  let dirs = values
-    .map((value) => {
-      return path.dirname(value).replace(/^(\.\/)/, '')
-    })
-    .filter((item) => item !== '.')
-  dirs = Array.from(new Set(dirs))
-
-  // Try to count the folders with high probability
-  const libDirs: string[] = ['dist', 'lib', 'umd', 'cjs', 'es', 'esm']
-
-  libDirs.forEach((libDir) => {
-    if (fs.existsSync(path.join(root, libDir)) && !dirs.includes(libDir)) {
-      dirs.push(libDir)
-    }
-  })
-
-  dirs.forEach((dir) => {
-    resultExports[`./${dir}/*`] = `./${dir}/*`
-  })
-
-  return resultExports
-}
-
-async function handleWildcardExports(exp: Record<string, any>, root: string) {
-  const keys = Object.keys(exp)
-
-  if (keys.every((key) => !key.includes('*'))) {
-    return exp
-  }
-
-  const resultExports = exp
-  keys.forEach((key) => {
-    if (key.includes('*')) {
-      Reflect.deleteProperty(resultExports, key)
-      const files = fg.sync(key, { cwd: root })
-      files.forEach((file) => {
-        if (/\.([c|m]?js)$/.test(file)) {
-          resultExports[file] = file
-          resultExports[file.replace(/\.([c|m]?js)$/, '')] = file
-        }
+      Object.assign(resultExports, {
+        '.': normalizePkgMain,
       })
     }
-  })
-  return resultExports
-}
+    // module and main is exits
+    else if (pkgModule && pkgMain) {
+      const normalizePkgMain = normalizeExport(pkgMain)
+      const normalizepkgModule = normalizeExport(pkgModule)
+      const addonCjsMainFiles = await createCjsMainFiles(root, normalizePkgMain)
+      cjsMainFiles.push(...addonCjsMainFiles)
+      Object.assign(resultExports, await joinFilesToExports(root, pkgFiles))
 
-export async function buildExports(pkg: PackageJson, root: string) {
-  const { exports: _exports, module: _module, type } = pkg
+      resultExports['./package.json'] = './package.json.js'
 
-  let resultExports: Record<string, any> = {}
+      Object.assign(resultExports, {
+        '.': await resolveMainAndModule(
+          root,
+          normalizePkgMain,
+          normalizepkgModule,
+        ),
+        [normalizePkgMain]: await resolveMain(root, normalizePkgMain),
+        [normalizepkgModule]: normalizepkgModule,
+      })
+    } else if (!pkgModule && pkgMain) {
+      const normalizePkgMain = normalizeExport(pkgMain)
+      const addonCjsMainFiles = await createCjsMainFiles(root, normalizePkgMain)
+      cjsMainFiles.push(...addonCjsMainFiles)
 
-  // When the export field is string
-  if (typeof _exports === 'string') {
-    if (type === 'module') {
-      pkg.module = _exports
+      Object.assign(resultExports, {
+        '.': await resolveMain(root, normalizePkgMain),
+        [normalizePkgMain]: await resolveMain(root, normalizePkgMain),
+      })
+
+      resultExports['./package.json'] = './package.json.js'
+
+      Object.assign(resultExports, await joinFilesToExports(root, pkgFiles))
     }
-    resultExports['.'] = _exports
-    return resultExports
+
+    pkgExports = resultExports
   }
 
-  Object.assign(resultExports, _exports)
-
-  // When the export field does not exist
-  if (!_exports) {
-    resultExports = await createExportsNotExits(root, pkg)
-    return resultExports
+  if (unStandard) {
+    pkgExports['./package.json'] = './package.json.js'
   }
 
-  resultExports = recursionExportsRemoveDts(resultExports)
+  let result = await addCjsFiledToExports({ root, pkgExports, cjsMainFiles })
 
-  // export field exists
-  resultExports = await transformExports(resultExports, pkg, root)
+  result = await handlerPkgBrowser(pkgBrowser as any, result)
 
-  return resultExports
+  return result
 }
 
-async function transformExports(
-  exp: Record<string, any>,
-  pkg: PackageJson,
-  root: string,
-) {
-  const resultExports: Record<string, any> = {}
-  Object.assign(resultExports, exp)
-
-  if (!resultExports['.']) {
-    resultExports['.'] = (await createExportsNotExits(root, pkg))['.']
-  }
-  return resultExports
-}
-
-async function createExportsNotExits(root: string, pkg: PackageJson) {
-  const { module: _module, main, files } = pkg
-  const resultExports: Record<string, any> = {}
-
-  // Does not contain module and main fields
-  if (!_module && !main) {
-    for (const ext of ['js', 'mjs', 'cjs', 'json']) {
-      const file = `index.${ext}`
-
-      if (files && Array.isArray(files)) {
-        if (files.includes(file) && fileExits(path.resolve(root, file))) {
-          resultExports['.'] = normalizeExport(file)
-        }
-      } else {
-        if (fileExits(path.resolve(root, file))) {
-          resultExports['.'] = normalizeExport(file)
-        }
-      }
-    }
-  } else if (main && _module) {
-    resultExports['.'] = resolveExportValue(main, _module)
-  } else if (main && !_module) {
-    resultExports['.'] = resolveMainValue(main)
-  } else if (!main && _module) {
-    resultExports['.'] = resolveExportValue(_module, _module)
-  }
-
-  return resultExports
-}
-
-function resolveExportValue(main: string, mod: string) {
-  return {
-    module: normalizeExport(mod),
-    default: resolveMainValue(main),
-  }
-}
-
-function resolveMainValue(main) {
-  const normalizeMain = normalizeExport(main)
-  return {
-    development: normalizeMain,
-    default: normalizeMain,
-  }
-}
-
-async function resolveFiles(
+export async function resolveFiles(
   pkg: PackageJson,
   root: string,
   pkgExports: Record<string, any>,
 ) {
   let { files = [] } = pkg
-
-  files = files.filter((item) => {
-    return !(
-      //   item.includes('.d.ts') ||
-      (item.includes('*') || !item.endsWith('js'))
-    )
-  })
+  files = []
+  //   files = files.filter((item) => {
+  //     return !(
+  //       //   item.includes('.d.ts') ||
+  //       (item.includes('*') || !item.endsWith('js'))
+  //     )
+  //   })
 
   // add package.json、package.json.js to files
   files.push(...['', '.js'].map((item) => `package.json${item}`))
@@ -297,7 +200,7 @@ async function resolveFiles(
 
   // Add .map to js file
   files.forEach((item) => {
-    if (/\.js$/.test(item) && !item.includes('*')) {
+    if (/\.[m|c]?js$/.test(item) && !item.includes('*')) {
       files.push(`${item}.map`)
     }
   })
@@ -314,33 +217,315 @@ async function resolveFiles(
   })
 
   files.push(...matchFiles, ...matchTsFiles)
+  files = files.filter((item) => !['*', '.', './', './*'].includes(item))
   return Array.from(new Set(files)).sort()
 }
 
-// export async function createCjsField(
-//   resultExports: Record<string, any>,
-//   root: string,
-// ) {
-//   await init
-//   const values = recursionExportsValues(resultExports)
-//   const result: Record<string, any> = {}
+async function joinFilesToExports(root: string, pkgFiles: string[]) {
+  const resultExports: Recordable = {}
+  const getFiles = await findPkgFiles(root, pkgFiles)
+  getFiles.forEach((file) => {
+    const fileKey = normalizeExport(file)
+    if (!fileKey.endsWith('.cjs.js')) {
+      resultExports[fileKey] = fileKey
+      if (JS_RE.test(fileKey)) {
+        resultExports[removeFileExt(fileKey)] = fileKey
+      }
+    }
+  })
+  return resultExports
+}
 
-//   await Promise.all(
-//     values.map((item) => {
-//       const filePath = path.resolve(root, item)
-//       if (fs.existsSync(filePath)) {
-//         // const content = fs.readFileSync(filePath, { encoding: 'utf-8' })
-//         const [, _exports] = parse(
-//           fs.readFileSync(filePath, { encoding: 'utf-8' }),
-//         )
+async function handlerPkgBrowser(
+  pkgBrowser: Recordable | undefined,
+  pkgExports: Recordable,
+) {
+  if (!pkgBrowser || _.isString()) {
+    return pkgExports
+  }
 
-//         const isCjs = _exports.length === 0
-//         if (isCjs) {
-//           result[`${item}!cjs`] = item
-//         }
-//       }
-//       return true
-//     }),
-//   )
-//   return result
-// }
+  const resultExports = pkgExports
+  for (const [key, value] of Object.entries(pkgBrowser)) {
+    if (!resultExports[key] || _.isString(resultExports[key])) {
+      resultExports[removeFileExt(key)] = resultExports[key] = {
+        default: normalizeExport(key),
+        browser: normalizeExport(value),
+      }
+    }
+  }
+  return resultExports
+}
+
+async function createCjsMainFiles(root: string, pkgMain: string) {
+  const { isCjs } = await getFileType(root, pkgMain)
+  const isDynamic = await getIsDynamic(root, pkgMain)
+  const cjsMainFiles: string[] = []
+  if (isCjs) {
+    cjsMainFiles.push(
+      ...[pkgMain],
+      ...(isDynamic ? [await resolveDevFilename(pkgMain)] : []),
+    )
+  }
+  return cjsMainFiles
+}
+
+async function findPkgFiles(root: string, pkgFiles: string[] = []) {
+  const pattern =
+    pkgFiles.length === 0
+      ? '**/**'
+      : pkgFiles.map((item) => {
+          if (item.includes('*') || path.extname(item)) {
+            return item
+          } else {
+            const filepath = path.join(root, item)
+            if (fs.existsSync(filepath) && fs.statSync(filepath).isFile()) {
+              return item
+            }
+            return `${item}${item.endsWith('/') ? '' : '/'}**/**.js`
+          }
+        })
+  const files = await fg(pattern, { cwd: root, ignore: FILES_IGNORE })
+
+  return files.filter((item) => {
+    const ext = path.extname(item)
+    if (
+      (!ext ||
+        // lodash
+        item.startsWith('_'),
+      ext === '.ts' ||
+        // test file
+        FILE_EXCLUDES.some((file) => item.includes(file)))
+    ) {
+      return false
+    }
+    return FILE_EXTENSIONS.includes(ext)
+  })
+}
+
+async function handleObjectPattern({
+  root,
+  pkgExports,
+  key,
+  pattern,
+}: {
+  root: string
+  pkgExports: Recordable
+  key: string
+  pattern: Recordable
+}) {
+  for (const [pkey, pval] of Object.entries(pattern)) {
+    if (IGNORE_KEYS.includes(pkey)) {
+      continue
+    }
+    if (_.isString(pval)) {
+      if (
+        pattern.import &&
+        pattern.require &&
+        _.isString(pattern.import) &&
+        _.isString(pattern.require) &&
+        pattern.require !== pattern.import
+      ) {
+        continue
+      }
+
+      pkgExports[key][pkey] = await resolveMain(root, pval)
+    } else if (_.isObject(pval)) {
+      for (const [ik, iv] of Object.entries(pval)) {
+        if (IGNORE_KEYS.includes(ik)) {
+          continue
+        }
+        if (_.isString(iv)) {
+          pkgExports[key][pkey][ik] = await resolveMain(root, iv)
+        }
+      }
+    }
+  }
+}
+
+async function addMatchFileToExports(
+  pattern: string,
+  pkgExports: Recordable,
+  cwd: string,
+) {
+  const files = fg.sync(pattern, { cwd })
+
+  for (const key of files) {
+    pkgExports[key] = normalizeExport(key)
+  }
+}
+
+async function addCjsFiledToExports({
+  root,
+  pkgExports,
+  cjsMainFiles,
+}: {
+  root: string
+  pkgExports: Recordable
+  cjsMainFiles: string[]
+}) {
+  for (const [key, value] of Object.entries(pkgExports)) {
+    // {require:'./index'}
+    if (_.isObject(value)) {
+      const requireFile = (value as any).require
+      if (requireFile) {
+        if (_.isString(requireFile)) {
+          pkgExports[`${requireFile}!cjs`] = requireFile
+        } else if (_.isObject(requireFile)) {
+          for (const rval of Object.values(requireFile)) {
+            pkgExports[`${rval}!cjs`] = rval
+          }
+        }
+      }
+    } else {
+      try {
+        if (!key.includes('*') && !key.startsWith('.ts')) {
+          if (JS_RE.test(key)) {
+            const { isCjs } = await getFileType(root, key)
+            if (isCjs) {
+              pkgExports[`${key}!cjs`] = key
+            }
+          } else if (key.endsWith('package.json')) {
+            pkgExports[`${value}!cjs`] = value
+          }
+        }
+      } catch (error) {
+        // No error will be reported for files that cannot be obtained
+      }
+    }
+  }
+
+  for (const cjsMainFile of cjsMainFiles) {
+    pkgExports[`${cjsMainFile}!cjs`] = cjsMainFile
+  }
+  return pkgExports
+}
+
+// For packages that do not specify any identity, you need to try to guess his entry
+function guessEntryFile(root: string, pkgFiles: string[]) {
+  let indexFile = pkgFiles.find((file) => path.basename(file) === 'index')
+
+  if (indexFile) {
+    indexFile = path.basename(indexFile)
+  } else {
+    indexFile = 'index'
+  }
+
+  const entryFile = fileResolveByExtension(path.join(root || '', indexFile))
+
+  if (entryFile) {
+    return path.relative(root, entryFile)
+  }
+  return DEFAULT_ENTRY
+}
+
+async function resolveMainAndModule(
+  root: string,
+  pkgMain: string,
+  pkgModule: string,
+) {
+  return {
+    module: normalizeExport(pkgModule),
+    default: await resolveMain(root, pkgMain),
+  }
+}
+
+async function resolveMain(root: string, pkgMain: string) {
+  const normalizeMain = normalizeExport(pkgMain)
+  const isDynamicEntry = await getIsDynamic(root, pkgMain)
+  const { isUmd } = await getFileType(root, pkgMain)
+
+  if (isUmd || pkgMain.endsWith('.mjs') || !isDynamicEntry) {
+    return normalizeMain
+  }
+
+  return {
+    // TODO dev file
+    development: !isDynamicEntry
+      ? normalizeMain
+      : // "./index.js" => "./dev.index.js"
+        await resolveDevFilename(normalizeMain),
+    default: normalizeMain,
+  }
+}
+
+async function resolveDevFilename(filename: string) {
+  // "./index.js" => "./dev.index.js"
+  const basename = path.basename(filename)
+  const newBaseName = basename.replace(
+    /^(\.?\/?)*/,
+    (m, $1) => `${$1 || ''}dev.`,
+  )
+  return filename.replace(basename, newBaseName)
+}
+
+async function getIsDynamic(root: string, filepath: string) {
+  const mainContent = fileReader(path.join(root, filepath))
+  let isDynamic = false
+  if (JS_RE.test(filepath)) {
+    isDynamic = await isDynamicEntry(mainContent)
+  }
+  return isDynamic
+}
+
+async function isDynamicEntry(source: string) {
+  try {
+    // const { exports: devExports, reexports: devReexports } = cjsParse(
+    //   filename,
+    //   source,
+    //   'development',
+    // )
+    // const { exports: prodExports, reexports: prodReexports } = cjsParse(
+    //   filename,
+    //   source,
+    //   'production',
+    // )
+    // return devReexports?.length !== 0 && prodReexports?.length !== 0
+    // process.env.NODE_ENV === 'production'
+    return source.replace(/\s*/g, '').includes(`process.env.NODE_ENV==`)
+  } catch (error) {
+    return false
+  }
+}
+
+async function getFileType(root: string, filepath: string) {
+  if (!JS_RE.test(filepath)) {
+    return { isCjs: false, isEsm: false, isUmd: false }
+  }
+  await esInit
+  const source = fileReader(path.join(root, filepath))
+  const [importer, exporter, facade] = esParse(source)
+
+  const { exports, reexports } = cjsParse('', source)
+
+  // iife or umd
+  if (
+    !(exports.length === 0 && reexports.length === 0) &&
+    importer.length === 0 &&
+    exporter.length === 0
+  ) {
+    return { isCjs: true, isEsm: false, isUmd: false }
+  }
+  const isCjs = !facade && importer.length === 0 && exporter.length === 0
+  const isEsm = importer.length !== 0 || exporter.length !== 0
+  return {
+    isCjs,
+    isEsm,
+    isUmd: !isCjs && !isEsm,
+  }
+}
+
+export function normalizeExport(str: string) {
+  if (str?.startsWith('./')) {
+    return str
+  }
+
+  if (str?.startsWith('/')) {
+    return `.${str}`
+  }
+  return `./${str}`
+}
+
+export function removeFileExt(file: string) {
+  const lastIndex = file.lastIndexOf(path.extname(file))
+  return file.substring(0, lastIndex)
+}

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
-import { extractTarball, getTarballURL } from '../../utils/npm'
+import { extractTarball, getTarballURL } from '@/utils/npm'
 import { PackageJson, writePackageJSON } from 'pkg-types'
-import { validatePackagePathname } from '../../utils/validate'
+import { validatePackagePathname } from '@/utils/validate'
 import AsyncLock from 'async-lock'
 import validateNpmPackageName from 'validate-npm-package-name'
 import fs from 'fs-extra'
@@ -9,16 +9,12 @@ import path from 'path'
 import {
   Error403Exception,
   Error500Exception,
-} from '../../common/exception/errorStateException'
-import {
-  CACHE_DIR,
-  ETC_DIR,
-  BUILDS_DIR,
-  //  POLYFILL_DIR
-} from '../../constants'
+} from '@/common/exception/errorStateException'
+import { CACHE_DIR, ETC_DIR, BUILDS_DIR } from '@/constants'
 import { resolvePackage } from './core/resolvePackage'
 import { build as rollupBuild } from './core/rollupBuild'
-import { outputErrorLog } from '../../utils/errorLog'
+import { outputErrorLog } from '@/utils/errorLog'
+import { Logger } from '@/plugins/logger/index'
 
 const lock = new AsyncLock()
 
@@ -26,7 +22,7 @@ const lock = new AsyncLock()
 export class BuildService {
   constructor() {}
 
-  async lockBuild(pathname?: string) {
+  async build(pathname: string | undefined, force = false) {
     fs.ensureDirSync(ETC_DIR)
     const { packageName, packageVersion } = await validatePackagePathname(
       pathname,
@@ -34,14 +30,15 @@ export class BuildService {
     return lock
       .acquire(
         `${packageName}@${packageVersion}`,
-        this.build.bind(this, packageName, packageVersion),
+        this.doBuild.bind(this, packageName, packageVersion, force),
       )
       .catch((err) => {
+        Logger.error(err)
         outputErrorLog(err, packageName, packageVersion)
       })
   }
 
-  async build(packageName: string, packageVersion: string) {
+  async doBuild(packageName: string, packageVersion: string, force = false) {
     validateNpmPackageName(packageName)
 
     // await validatePackageVersion(packageName, packageVersion)
@@ -58,11 +55,11 @@ export class BuildService {
 
     const isCached = fs.existsSync(cachePath)
 
-    if (isCached && isBuilded) {
+    if (isCached && isBuilded && !force) {
       return
     }
 
-    if (isBuilded) {
+    if (isBuilded && !force) {
       throw new Error403Exception(
         `Package ${packageName}@${packageVersion} has already been built.`,
       )
@@ -70,7 +67,6 @@ export class BuildService {
 
     if (!isCached) {
       const tarballURL = getTarballURL(packageName, packageVersion)
-
       await extractTarball(cachePath, tarballURL)
     }
 
@@ -108,7 +104,7 @@ export class BuildService {
   }
 
   private async getFiles(cachePath: string, pkgJson: PackageJson) {
-    const files = pkgJson?.files ?? []
+    const { files = [], browser = {} } = pkgJson
     const copyFiles: string[] = []
 
     copyFiles.push('package.json')
@@ -118,6 +114,7 @@ export class BuildService {
       if (!ext) {
         return false
       }
+
       if (!fs.existsSync(path.join(cachePath, item))) {
         return false
       }
@@ -125,13 +122,23 @@ export class BuildService {
       if (item === 'package.json') {
         return true
       }
+
       if (item === 'package.json.js') {
         return false
       }
-      if (item.endsWith('.mjs') || item.endsWith('.ts')) {
+
+      if (item.endsWith('.cjs') || item.endsWith('.mjs')) {
+        return true
+      }
+
+      if (
+        //   item.endsWith('.mjs') ||
+        item.endsWith('.ts')
+      ) {
         copyFiles.push(item)
         return false
       }
+
       if (item.endsWith('.js')) {
         return true
       }
@@ -142,6 +149,13 @@ export class BuildService {
     })
 
     buildFiles = buildFiles.map((item) => path.resolve(cachePath, item))
+
+    for (const [key] of Object.entries(browser)) {
+      buildFiles = buildFiles.filter((item) => {
+        const name = path.relative(cachePath, item)
+        return path.join(name) !== path.join(key)
+      })
+    }
 
     return { buildFiles, copyFiles }
   }

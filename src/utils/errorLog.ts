@@ -7,7 +7,7 @@ export function outputErrorLog(
   packageName: string,
   packageVersion: string,
 ): never {
-  const libDir = `${packageName}/${packageVersion}`
+  const libDir = `${packageName}@${packageVersion}`
   const buildsPath = path.join(BUILDS_DIR, libDir)
   stackTrace.fromError(err).then((result) => {
     let errText = '\n'

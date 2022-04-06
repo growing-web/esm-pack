@@ -5,17 +5,16 @@ import {
   validatePackagePathname,
   validateNpmPackageName,
 } from '../../utils/validate'
-import {
-  BUILDS_DIR,
-  //   POLYFILL_DIR,
-  //   POLYFILL_PACKAGE_NAME,
-  //   POLYFILL_VERSION,
-} from '../../constants'
+import { BUILDS_DIR } from '../../constants'
 import { Error404Exception } from '../../common/exception'
 import { bufferStream } from '../../utils/bufferStream'
 import { getIntegrity } from '../../utils/getIntegrity'
 import getContentType from '../../utils/getContentType'
 import { outputErrorLog } from '../../utils/errorLog'
+import {
+  fileResolveByExtension,
+  resolveEntryByDir,
+} from '../../utils/fileResolver'
 
 @Injectable()
 export class EsmService {
@@ -25,21 +24,6 @@ export class EsmService {
   async resolveEsmFile(pathname?: string) {
     const { packageName, packageVersion, filename } =
       await validatePackagePathname(pathname)
-
-    // if (pathname?.startsWith(POLYFILL_DIR)) {
-    //   const entry = await this.findEntry(
-    //     POLYFILL_PACKAGE_NAME,
-    //     POLYFILL_VERSION,
-    //     pathname.replace(`${POLYFILL_PACKAGE_NAME}@${POLYFILL_VERSION}/`, ''),
-    //   )
-
-    //   return {
-    //     packageName,
-    //     packageVersion,
-    //     filename,
-    //     entry,
-    //   }
-    // }
 
     if (packageName === 'undefined') {
       throw new Error404Exception()
@@ -72,12 +56,22 @@ export class EsmService {
       filename,
     )
 
-    if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+    let exitsFile = fileResolveByExtension(filePath)
+
+    if (!exitsFile) {
       throw new Error404Exception('Not Found.')
     }
 
+    if (fs.statSync(exitsFile).isDirectory()) {
+      const indexFile = resolveEntryByDir(exitsFile)
+      if (!indexFile) {
+        throw new Error404Exception('Not Found.')
+      }
+      exitsFile = indexFile
+    }
+
     try {
-      const readerStream: any = fs.createReadStream(filePath)
+      const readerStream: any = fs.createReadStream(exitsFile)
       const content = await bufferStream(readerStream)
 
       const { mtime, size } = fs.statSync(readerStream.path)
