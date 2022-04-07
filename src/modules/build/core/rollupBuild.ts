@@ -1,61 +1,95 @@
-import { rollup } from 'rollup'
 import nodePolyfills from 'rollup-plugin-node-polyfills'
 import commonjs from '@rollup/plugin-commonjs'
 import resolve from '@rollup/plugin-node-resolve'
 import esbuild from 'rollup-plugin-esbuild'
+import rollupJSONPlugin from '@rollup/plugin-json'
 import path from 'pathe'
 import fs from 'fs-extra'
-import rollupJSONPlugin from '@rollup/plugin-json'
+import { rollup } from 'rollup'
 import { rawPlugin } from './plugins/raw'
 import { EXTENSIONS } from '@/constants'
+import { isDynamicEntry } from './resolvePackage'
+import type { PackageJson } from 'pkg-types'
 
 export async function build(
   buildFiles: string[],
   buildPath: string,
   cachePath: string,
+  pkg: PackageJson,
 ) {
-  const errorExternal: string[] = []
-
-  const inputObj: Record<string, string> = {}
-  for (const mod of buildFiles) {
-    let basename = path.basename(mod)
+  const inputMap: Record<string, string> = {}
+  const devInputMap: Record<string, string> = {}
+  const { files: pkgFiles = [] } = pkg
+  for (const file of buildFiles) {
+    let basename = path.basename(file)
     if (basename.indexOf('.') !== -1)
       basename = basename.substring(0, basename.lastIndexOf('.'))
     let inputName = basename
     let i = 0
-    while (inputName in inputObj) inputName = basename + i++
-    inputObj[inputName] = mod
+    while (inputName in inputMap) {
+      inputName = basename + i++
+    }
+    inputMap[file] = file
+
+    if (pkgFiles.includes(path.relative(cachePath, file))) {
+      const dynamicEntry = await isDynamicEntry(
+        fs.readFileSync(file, { encoding: 'utf8' }),
+      )
+      if (dynamicEntry) {
+        devInputMap[file] = file
+      }
+    }
   }
 
-  //   const results =
-  await bundle(inputObj, buildPath, cachePath, errorExternal, 'production')
+  const emptyInput = await doBuild({
+    input: inputMap,
+    buildPath,
+    cachePath,
+    env: 'production',
+  })
 
-  //   await Promise.all(
-  //     buildFiles.map((input) =>
-  //       bundle(input, buildPath, cachePath, errorExternal, 'production'),
-  //     ),
-  //   )
+  if (Object.keys(devInputMap).length) {
+    await doBuild({
+      input: devInputMap,
+      buildPath,
+      cachePath,
+      env: 'development',
+      dev: true,
+    })
+  }
 
-  // TODO
-  //   const devFiles = results.flat()
-
-  //   await Promise.all(
-  //     devFiles.map((input) =>
-  //       bundle(input, buildPath, cachePath, errorExternal, 'development'),
-  //     ),
-  //   )
+  // await Promise.all(
+  //   buildFiles.map((input) =>
+  //     bundle(input, buildPath, cachePath, errorExternal, 'production'),
+  //   ),
+  // )
+  if (Object.keys(emptyInput).length) {
+    await doBuild({
+      input: emptyInput,
+      buildPath,
+      cachePath,
+      env: 'development',
+    })
+  }
 }
-async function bundle(
-  input: Record<string, string>,
-  buildPath: string,
-  cachePath: string,
-  errorExternal: string[],
-  env: string,
-) {
-  const emptyInput: string[] = []
+async function doBuild({
+  input,
+  cachePath,
+  buildPath,
+  env,
+  dev = false,
+}: {
+  input: Record<string, string>
+  buildPath: string
+  cachePath: string
+  env: string
+  dev?: boolean
+}) {
+  const emptyInput: Record<string, string> = {}
   const NODE_ENV = JSON.stringify(env)
 
   const inputKeys = Object.keys(input)
+
   const bundle = await rollup({
     input: input,
     onwarn: (warning, handler) => {
@@ -65,7 +99,10 @@ async function bundle(
       if (warning.code === 'EMPTY_BUNDLE' && env === 'production') {
         const match = warning.message.match(/Generated an empty chunk: "(.*)+"/)
         if (match) {
-          //   emptyInput.push(input)
+          const key = match?.[1]
+          if (key) {
+            emptyInput[key] = key
+          }
         }
         return
       }
@@ -73,11 +110,11 @@ async function bundle(
       handler(warning)
     },
     external: (id) => {
-      if (inputKeys.includes(path.join(cachePath, id))) {
-        return false
-      }
-
-      if (errorExternal.includes(id)) {
+      if (
+        inputKeys.includes(path.join(cachePath, id)) ||
+        id[0] === '.' ||
+        path.isAbsolute(id)
+      ) {
         return false
       }
 
@@ -85,7 +122,6 @@ async function bundle(
       //   const lastIndex = id.lastIndexOf(ext)
 
       //   if (
-      //     id.includes(path.join(id.substring(0, lastIndex))) &&
       //     !inputKeys.includes(id) &&
       //     !inputKeys.includes(id.substring(0, lastIndex)) &&
       //     !inputKeys.includes(path.join(cachePath, id.substring(0, lastIndex))) &&
@@ -97,13 +133,10 @@ async function bundle(
       //   ) {
       //     return true
       //   }
-      if (id[0] === '.' || path.isAbsolute(id)) {
-        return false
-      }
 
-      if (id.startsWith('data:')) {
-        return true
-      }
+      //   if (id.startsWith('data:')) {
+      //     return true
+      //   }
 
       return true
     },
@@ -116,8 +149,7 @@ async function bundle(
       rollupJSONPlugin({}),
       esbuild({
         target: 'es2021',
-        include: /\.[m|c]?js$/,
-        sourceMap: true,
+        // sourceMap: true,
         minify: true,
         minifyWhitespace: true,
         minifyIdentifiers: true,
@@ -125,6 +157,7 @@ async function bundle(
         // legalComments: 'none',
         define: {
           'process.env.NODE_ENV': NODE_ENV,
+          'globals.process.env.NODE_ENV': NODE_ENV,
         },
       }),
       commonjs({
@@ -159,8 +192,8 @@ async function bundle(
   const { output } = await bundle.generate({
     dir: buildPath,
     indent: true,
+    // indent: true,
     esModule: true,
-    exports: 'auto',
     preferConst: true,
     externalLiveBindings: false,
     freeze: false,
@@ -173,29 +206,37 @@ async function bundle(
       }
       return `${path.relative(cachePath, chunk.facadeModuleId!)}.js`
     },
+    chunkFileNames: '[name].js',
   })
 
   await Promise.all(
     output.map((chunk) => {
       if (chunk.type === 'chunk') {
+        const map = chunk.map?.toString()
+        const encoding = {
+          encoding: 'utf8',
+        }
+
+        const filename = `${
+          dev && !chunk.fileName.startsWith('_') ? 'dev.' : ''
+        }${chunk.fileName}`
         return Promise.all([
           fs.outputFile(
-            path.join(buildPath, chunk.fileName),
-            `/* rollup bundle: ${env}. */\n${chunk.code}`,
-            {
-              encoding: 'utf8',
-            },
+            path.join(buildPath, filename),
+            `/* [esm-pack] bundle for ${env}. */\t${chunk.code}`,
+            encoding,
           ),
-          fs.outputFile(
-            path.join(buildPath, `${chunk.fileName}.map`),
-            chunk.map?.toString(),
-            { encoding: 'utf8' },
-          ),
+          map &&
+            fs.outputFile(
+              path.join(buildPath, `${filename}.map`),
+              map,
+              encoding,
+            ),
         ])
       }
       return () => {}
     }),
   )
 
-  return emptyInput.filter(Boolean)
+  return emptyInput
 }

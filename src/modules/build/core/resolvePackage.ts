@@ -483,7 +483,7 @@ async function getIsDynamic(root: string, filepath: string) {
   return isDynamic
 }
 
-async function isDynamicEntry(source: string) {
+export async function isDynamicEntry(source: string) {
   try {
     // const { exports: devExports, reexports: devReexports } = cjsParse(
     //   filename,

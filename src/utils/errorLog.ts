@@ -6,7 +6,7 @@ export function outputErrorLog(
   err: any,
   packageName: string,
   packageVersion: string,
-): never {
+) {
   const libDir = `${packageName}@${packageVersion}`
   const buildsPath = path.join(BUILDS_DIR, libDir)
   stackTrace.fromError(err).then((result) => {
@@ -22,6 +22,4 @@ export function outputErrorLog(
       `${new Date().toLocaleString()} packageName: ${packageName} packageVersion:${packageVersion} \n${`\n${err.toString()}\n${errText}`}\n`,
     )
   })
-
-  throw new Error(err)
 }

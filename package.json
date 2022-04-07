@@ -56,6 +56,7 @@
     "@nestjs/core": "^8.4.3",
     "@nestjs/platform-express": "^8.4.3",
     "@nestjs/throttler": "2.0.1",
+    "@rollup/plugin-alias": "^3.1.9",
     "async-lock": "^1.3.1",
     "cjs-esm-exports": "^0.6.1",
     "cjs-module-lexer": "^1.2.2",

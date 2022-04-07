@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common'
 import { extractTarball, getTarballURL } from '@/utils/npm'
 import { PackageJson, writePackageJSON } from 'pkg-types'
 import { validatePackagePathname } from '@/utils/validate'
-import AsyncLock from 'async-lock'
 import validateNpmPackageName from 'validate-npm-package-name'
 import fs from 'fs-extra'
 import path from 'path'
@@ -10,6 +9,7 @@ import {
   Error403Exception,
   Error500Exception,
 } from '@/common/exception/errorStateException'
+import AsyncLock from 'async-lock'
 import { CACHE_DIR, ETC_DIR, BUILDS_DIR } from '@/constants'
 import { resolvePackage } from './core/resolvePackage'
 import { build as rollupBuild } from './core/rollupBuild'
@@ -22,7 +22,7 @@ const lock = new AsyncLock()
 export class BuildService {
   constructor() {}
 
-  async build(pathname: string | undefined, force = false) {
+  async build(pathname: string | undefined, force: boolean) {
     fs.ensureDirSync(ETC_DIR)
     const { packageName, packageVersion } = await validatePackagePathname(
       pathname,
@@ -35,6 +35,7 @@ export class BuildService {
       .catch((err) => {
         Logger.error(err)
         outputErrorLog(err, packageName, packageVersion)
+        throw err
       })
   }
 
@@ -65,7 +66,8 @@ export class BuildService {
       )
     }
 
-    if (!isCached) {
+    if (!isCached && !force) {
+      isCached && (await fs.remove(cachePath)) // force=true
       const tarballURL = getTarballURL(packageName, packageVersion)
       await extractTarball(cachePath, tarballURL)
     }
@@ -74,8 +76,9 @@ export class BuildService {
 
     const { buildFiles, copyFiles } = await this.getFiles(cachePath, pkgJson)
     try {
+      isBuilded && (await fs.remove(buildsPath)) // force=true
       //   await buildFunc(buildFiles, buildsPath, cachePath)
-      await rollupBuild(buildFiles, buildsPath, cachePath)
+      await rollupBuild(buildFiles, buildsPath, cachePath, pkgJson)
       await Promise.all(
         copyFiles.map((item) =>
           fs.copy(
@@ -109,41 +112,25 @@ export class BuildService {
 
     copyFiles.push('package.json')
 
-    let buildFiles = files.filter((item) => {
-      const ext = path.extname(item)
-      if (!ext) {
-        return false
-      }
-
-      if (!fs.existsSync(path.join(cachePath, item))) {
-        return false
-      }
-
-      if (item === 'package.json') {
-        return true
-      }
-
-      if (item === 'package.json.js') {
-        return false
-      }
-
-      if (item.endsWith('.cjs') || item.endsWith('.mjs')) {
-        return true
-      }
-
+    let buildFiles = files.filter((file) => {
       if (
-        //   item.endsWith('.mjs') ||
-        item.endsWith('.ts')
+        !fs.existsSync(path.join(cachePath, file)) ||
+        file === 'package.json.js'
       ) {
-        copyFiles.push(item)
         return false
       }
 
-      if (item.endsWith('.js')) {
+      if (file === 'package.json' || /\.[m|c]?js$/.test(file)) {
         return true
       }
-      if (!item.endsWith('.map')) {
-        copyFiles.push(item)
+
+      if (file.endsWith('.ts')) {
+        copyFiles.push(file)
+        return false
+      }
+
+      if (!file.endsWith('.map')) {
+        copyFiles.push(file)
       }
       return false
     })
