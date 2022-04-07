@@ -1,20 +1,24 @@
 import { Injectable } from '@nestjs/common'
 import { extractTarball, getTarballURL } from '@/utils/npm'
 import { PackageJson, writePackageJSON } from 'pkg-types'
-import { validatePackagePathname } from '@/utils/validate'
-import validateNpmPackageName from 'validate-npm-package-name'
-import fs from 'fs-extra'
-import path from 'path'
+import {
+  validatePackagePathname,
+  validatePackageConfig,
+} from '@/utils/validate'
 import {
   Error403Exception,
   Error500Exception,
 } from '@/common/exception/errorStateException'
-import AsyncLock from 'async-lock'
-import { CACHE_DIR, ETC_DIR, BUILDS_DIR } from '@/constants'
+import { CACHE_DIR, ETC_DIR, BUILDS_DIR, PACKAGE_JSON } from '@/constants'
 import { resolvePackage } from './core/resolvePackage'
 import { build as rollupBuild } from './core/rollupBuild'
 import { outputErrorLog } from '@/utils/errorLog'
-import { Logger } from '@/plugins/logger/index'
+import { Logger } from '@/plugins/logger'
+import validateNpmPackageName from 'validate-npm-package-name'
+import fs from 'fs-extra'
+import path from 'path'
+import AsyncLock from 'async-lock'
+import { Error404Exception } from '../../common/exception/errorStateException'
 
 const lock = new AsyncLock()
 
@@ -44,12 +48,10 @@ export class BuildService {
 
     // await validatePackageVersion(packageName, packageVersion)
 
-    // await validatePackageConfig(packageName, packageVersion)
-
     const libDir = `${packageName}@${packageVersion}`
     const buildsPath = this.getBuildsPath(libDir)
 
-    const isBuilded = fs.existsSync(path.join(buildsPath, 'package.json'))
+    const isBuilded = fs.existsSync(path.join(buildsPath, PACKAGE_JSON))
 
     // Download npm to local
     const cachePath = this.getCachePath(packageName, packageVersion)
@@ -68,16 +70,26 @@ export class BuildService {
 
     if (!isCached && !force) {
       isCached && (await fs.remove(cachePath)) // force=true
+      await validatePackageConfig(packageName, packageVersion)
       const tarballURL = getTarballURL(packageName, packageVersion)
       await extractTarball(cachePath, tarballURL)
+    }
+
+    const downloadTarballSuccess = fs.existsSync(
+      this.getCachePath(packageName, packageVersion, PACKAGE_JSON),
+    )
+
+    if (!downloadTarballSuccess) {
+      throw new Error404Exception(
+        `Cannot find package ${packageName}@${packageVersion}`,
+      )
     }
 
     const pkgJson = await this.rewritePackage(cachePath)
 
     const { buildFiles, copyFiles } = await this.getFiles(cachePath, pkgJson)
     try {
-      isBuilded && (await fs.remove(buildsPath)) // force=true
-      //   await buildFunc(buildFiles, buildsPath, cachePath)
+      await fs.remove(buildsPath) // force=true
       await rollupBuild(buildFiles, buildsPath, cachePath, pkgJson)
       await Promise.all(
         copyFiles.map((item) =>
@@ -87,6 +99,8 @@ export class BuildService {
           ),
         ),
       )
+      Reflect.deleteProperty(pkgJson, '__ESMD__')
+      await writePackageJSON(path.join(buildsPath, 'package.json'), pkgJson)
     } catch (error: any) {
       throw new Error500Exception(error.toString())
     }
@@ -98,8 +112,8 @@ export class BuildService {
     return pkg
   }
 
-  private getCachePath(name: string, version: string) {
-    return path.join(CACHE_DIR, name, version)
+  private getCachePath(name: string, version: string, ...args: string[]) {
+    return path.join(CACHE_DIR, name, version, ...args)
   }
 
   private getBuildsPath(name: string) {

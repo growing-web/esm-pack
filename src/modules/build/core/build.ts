@@ -1,10 +1,10 @@
 import esbuild, { BuildOptions } from 'esbuild'
 import fs from 'fs-extra'
 import MagicString from 'magic-string'
-// import { POLYFILL_PREFIX } from '../../../constants'
 import path from 'pathe'
 import NodeModulesPolyfills from '@esbuild-plugins/node-modules-polyfill'
 
+// ! Unfinished, packaged by esbuild
 export async function build(
   buildFiles: string[],
   buildsPath: string,

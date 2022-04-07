@@ -1,8 +1,4 @@
-import {
-  Error403Exception,
-  Error404Exception,
-  Error500Exception,
-} from '../common/exception'
+import { Error403Exception, Error404Exception } from '../common/exception'
 import { parsePackagePathname } from './parsePackagePathname'
 import { resolvePackageVersion } from './resolvePackageVersion'
 import { getPackageConfig } from './npm'
@@ -54,7 +50,7 @@ export async function validatePackageConfig(
   const packageConfig = await getPackageConfig(packageName, packageVersion)
 
   if (!packageConfig) {
-    throw new Error500Exception(`Cannot get config for package ${packageName}`)
+    throw new Error404Exception(`Cannot get config for package ${packageName}`)
   }
   return packageConfig
 }

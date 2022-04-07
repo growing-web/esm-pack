@@ -94,3 +94,5 @@ export const FILES_IGNORE = [
   '**/.gitignore/**',
   '**/.markdownlint.yml/**',
 ]
+
+export const PACKAGE_JSON = 'package.json'

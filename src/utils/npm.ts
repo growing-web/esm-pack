@@ -5,13 +5,10 @@ import tar from 'tar'
 import { URL } from 'url'
 import https, { RequestOptions } from 'https'
 import request from 'request-promise'
-import progress from 'request-progress'
 import LRUCache from 'lru-cache'
-import gunzip from 'gunzip-maybe'
 import { bufferStream } from './bufferStream'
 
-const npmRegistryURL =
-  process.env.NPM_REGISTRY_URL || 'https://registry.npmjs.org'
+const npmRegistryURL = process.env.NPM_REGISTRY_URL
 
 const oneMegabyte = 1024 * 1024
 const oneSecond = 1000
@@ -22,15 +19,15 @@ const notFound = ''
 // All the keys that sometimes appear in package info
 // docs that we don't need. There are probably more.
 const packageConfigExcludeKeys = [
-  //   'browserify',
+  'browserify',
   'bugs',
-  //   'directories',
-  //   'engines',
-  //   'files',
-  //   'homepage',
-  //   'keywords',
-  //   'maintainers',
-  //   'scripts',
+  'directories',
+  'engines',
+  'files',
+  'homepage',
+  'keywords',
+  'maintainers',
+  'scripts',
 ]
 
 const cache = new LRUCache({
@@ -92,22 +89,17 @@ export function getNpmTarball(
 export async function extractTarball(
   destDir: string,
   tarballURL: string,
-  // eslint-disable-next-line
-  progressFunc = (state) => {},
 ): Promise<string[]> {
   return new Promise((resolve, reject) => {
     const allFiles: string[] = []
     const allWriteStream: any[] = []
     const dirCollector: string[] = []
 
-    progress(
-      request({
-        url: tarballURL,
-        timeout: 100000,
-      }),
-    )
-      .on('progress', progressFunc)
-      //   .on('error', reject)
+    request({
+      url: tarballURL,
+      timeout: 100000,
+    })
+      .on('error', reject)
       .pipe(new tar.Parse())
       .on('entry', (entry) => {
         if (entry.type === 'Directory') {
@@ -137,11 +129,6 @@ export async function extractTarball(
         )
       })
       .on('end', () => {
-        if (progressFunc) {
-          progressFunc({
-            percent: 1,
-          })
-        }
         Promise.all(allWriteStream)
           .then(() => resolve(allFiles))
           .catch(reject)
@@ -240,47 +227,8 @@ export function getTarballURL(packageName: string, version: string) {
   return `${npmRegistryURL}/${packageName}/-/${tarballName}-${version}.tgz`
 }
 
-/**
- * Returns a stream of the tarball'd contents of the given package.
- */
-export async function getPackage(packageName: string, version: string) {
-  const tarballURL = getTarballURL(packageName, version)
-
-  console.debug('Fetching package for %s from %s', packageName, tarballURL)
-
-  const { hostname, pathname } = new URL(tarballURL)
-  const options = {
-    agent: agent,
-    hostname: hostname,
-    path: pathname,
-  }
-
-  const res = await get(options)
-
-  if (res.statusCode === 200) {
-    const stream = res.pipe(gunzip())
-    return stream
-  }
-
-  if (res.statusCode === 404) {
-    return null
-  }
-
-  const content = (await bufferStream(res)).toString('utf-8')
-
-  console.error(
-    'Error fetching tarball for %s@%s (status: %s)',
-    packageName,
-    version,
-    res.statusCode,
-  )
-  console.error(content)
-
-  return null
-}
-
 export async function getVersionsAndTags(packageName: string) {
-  const cacheKey = `versions-${packageName}` as 'utf8'
+  const cacheKey = `versions-${packageName}`
   const cacheValue = cache.get(cacheKey)
 
   if (cacheValue !== null && cacheValue !== undefined) {
