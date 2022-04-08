@@ -3,7 +3,7 @@ import { resolveExports } from '../resolvePackage'
 import path from 'path'
 import fs from 'fs-extra'
 
-describe('resolve utils lib exports test.', () => {
+describe('resolve utils lib exports test. ', () => {
   test('nprogress 0.2.0', async () => {
     const root = path.join(__dirname, './fixtures/packages/nprogress/')
     const pkg = fs.readJSONSync(path.join(root, 'main.package.json'))

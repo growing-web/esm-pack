@@ -1,7 +1,7 @@
 import _ from 'lodash'
 
 /**
- *  Recursively delete fields with value .d.ts
+ *  Recursively delete fields with value .d.ts.
  * @param exp
  * @returns
  */

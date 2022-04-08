@@ -46,8 +46,6 @@ export class BuildService {
   async doBuild(packageName: string, packageVersion: string, force = false) {
     validateNpmPackageName(packageName)
 
-    // await validatePackageVersion(packageName, packageVersion)
-
     const libDir = `${packageName}@${packageVersion}`
     const buildsPath = this.getBuildsPath(libDir)
 

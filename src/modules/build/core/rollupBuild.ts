@@ -8,18 +8,18 @@ import fs from 'fs-extra'
 import { rollup } from 'rollup'
 import { rawPlugin } from './plugins/raw'
 import { EXTENSIONS } from '@/constants'
-import { isDynamicEntry } from './resolvePackage'
+// import { isDynamicEntry } from './resolvePackage'
 import type { PackageJson } from 'pkg-types'
 
 export async function build(
   buildFiles: string[],
   buildPath: string,
   cachePath: string,
-  pkg: PackageJson,
+  _pkg: PackageJson,
 ) {
   const inputMap: Record<string, string> = {}
-  const devInputMap: Record<string, string> = {}
-  const { files: pkgFiles = [] } = pkg
+  //   const devInputMap: Record<string, string> = {}
+  //   const { files: pkgFiles = [] } = pkg
   for (const file of buildFiles) {
     let basename = path.basename(file)
     if (basename.indexOf('.') !== -1)
@@ -31,14 +31,14 @@ export async function build(
     }
     inputMap[file] = file
 
-    if (pkgFiles.includes(path.relative(cachePath, file))) {
-      const dynamicEntry = await isDynamicEntry(
-        fs.readFileSync(file, { encoding: 'utf8' }),
-      )
-      if (dynamicEntry) {
-        devInputMap[file] = file
-      }
-    }
+    // if (pkgFiles.includes(path.relative(cachePath, file))) {
+    //   const dynamicEntry = await isDynamicEntry(
+    //     fs.readFileSync(file, { encoding: 'utf8' }),
+    //   )
+    //   if (dynamicEntry) {
+    //     devInputMap[file] = file
+    //   }
+    // }
   }
 
   const emptyInput = await doBuild({
@@ -48,15 +48,17 @@ export async function build(
     env: 'production',
   })
 
-  if (Object.keys(devInputMap).length) {
-    await doBuild({
-      input: devInputMap,
-      buildPath,
-      cachePath,
-      env: 'development',
-      dev: true,
-    })
-  }
+  // TODO DEV CDN
+
+  //   if (Object.keys(devInputMap).length) {
+  //     await doBuild({
+  //       input: devInputMap,
+  //       buildPath,
+  //       cachePath,
+  //       env: 'development',
+  //       dev: true,
+  //     })
+  //   }
 
   // await Promise.all(
   //   buildFiles.map((input) =>
@@ -89,7 +91,7 @@ async function doBuild({
   const NODE_ENV = JSON.stringify(env)
 
   const inputKeys = Object.keys(input)
-
+  const minify = !dev
   const bundle = await rollup({
     input: input,
     onwarn: (warning, handler) => {
@@ -150,11 +152,10 @@ async function doBuild({
       esbuild({
         target: 'es2021',
         // sourceMap: true,
-        minify: true,
-        minifyWhitespace: true,
-        minifyIdentifiers: true,
-        minifySyntax: true,
-        // legalComments: 'none',
+        minify: minify,
+        minifyWhitespace: minify,
+        minifyIdentifiers: minify,
+        minifySyntax: minify,
         define: {
           'process.env.NODE_ENV': NODE_ENV,
           'globals.process.env.NODE_ENV': NODE_ENV,

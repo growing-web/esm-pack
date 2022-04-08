@@ -4,7 +4,7 @@ import MagicString from 'magic-string'
 import path from 'pathe'
 import NodeModulesPolyfills from '@esbuild-plugins/node-modules-polyfill'
 
-// ! Unfinished, packaged by esbuild
+// ! Unfinished, packaged by esbuild.
 export async function build(
   buildFiles: string[],
   buildsPath: string,

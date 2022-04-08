@@ -3,7 +3,7 @@ import { resolveFiles, resolveExports } from '../resolvePackage'
 import path from 'path'
 import fs from 'fs-extra'
 
-describe('resolve files test.', () => {
+describe('resolve files test. ', () => {
   test('@vueuse/core 8.x', async () => {
     const root = path.join(__dirname, './fixtures/packages/vueuse/core/')
     const pkg = fs.readJSONSync(path.join(root, 'main.package.json'))

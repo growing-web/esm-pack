@@ -3,7 +3,7 @@ import { resolveImports } from '../resolvePackage'
 import path from 'path'
 import fs from 'fs-extra'
 
-describe('resolve imports test.', () => {
+describe('resolve imports test. ', () => {
   test('axios 0.2.x', async () => {
     const root = path.join(__dirname, './fixtures/packages/axios/')
     const pkg = fs.readJSONSync(path.join(root, 'main.package.json'))
