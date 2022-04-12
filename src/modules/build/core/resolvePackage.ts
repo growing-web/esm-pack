@@ -6,7 +6,7 @@ import _ from 'lodash'
 import path from 'path'
 import fs from 'fs-extra'
 import { fileResolveByExtension } from '@/utils/fileResolver'
-import { parse as cjsParse } from 'cjs-esm-exports'
+// import { parse as cjsParse } from 'cjs-esm-exports'
 import { init as esInit, parse as esParse } from 'es-module-lexer'
 import { fileReader } from '@/utils/file'
 import { FILE_EXCLUDES, FILE_EXTENSIONS, FILES_IGNORE } from '@/constants/index'
@@ -264,12 +264,12 @@ async function handlerPkgBrowser(
 
 async function createCjsMainFiles(root: string, pkgMain: string) {
   const { isCjs } = await getFileType(root, pkgMain)
-  const isDynamic = await getIsDynamic(root, pkgMain)
+  //   const isDynamic = await getIsDynamic(root, pkgMain)
   const cjsMainFiles: string[] = []
   if (isCjs) {
     cjsMainFiles.push(
       ...[pkgMain],
-      ...(isDynamic ? [await resolveDevFilename(pkgMain)] : []),
+      //   ...(isDynamic ? [await resolveDevFilename(pkgMain)] : []),
     )
   }
   return cjsMainFiles
@@ -455,15 +455,16 @@ async function resolveMain(root: string, pkgMain: string) {
 
   return {
     // TODO dev file
-    development: !isDynamicEntry
-      ? normalizeMain
-      : // "./index.js" => "./dev.index.js"
-        await resolveDevFilename(normalizeMain),
+    development: normalizeMain,
+    // development: !isDynamicEntry
+    //   ? normalizeMain
+    //   : // "./index.js" => "./dev.index.js"
+    //     await resolveDevFilename(normalizeMain),
     default: normalizeMain,
   }
 }
 
-async function resolveDevFilename(filename: string) {
+export async function resolveDevFilename(filename: string) {
   // "./index.js" => "./dev.index.js"
   const basename = path.basename(filename)
   const newBaseName = basename.replace(
@@ -506,22 +507,29 @@ async function getFileType(root: string, filepath: string) {
   if (!JS_RE.test(filepath)) {
     return { isCjs: false, isEsm: false, isUmd: false }
   }
+  const pkg = await readPackageJSON(root)
   await esInit
   const source = fileReader(path.join(root, filepath))
   const [importer, exporter, facade] = esParse(source)
 
-  const { exports, reexports } = cjsParse('', source)
+  //   const { exports, reexports } = cjsParse('', source)
 
   // iife or umd
   if (
-    !(exports.length === 0 && reexports.length === 0) &&
+    pkg.type !== 'module' &&
+    // !(exports.length === 0 && reexports.length === 0) &&
     importer.length === 0 &&
-    exporter.length === 0
+    exporter.length === 0 &&
+    !filepath.endsWith('.mjs')
   ) {
     return { isCjs: true, isEsm: false, isUmd: false }
   }
-  const isCjs = !facade && importer.length === 0 && exporter.length === 0
-  const isEsm = importer.length !== 0 || exporter.length !== 0
+  const isEsm =
+    (importer.length !== 0 && exporter.length !== 0) ||
+    pkg.type === 'module' ||
+    filepath.endsWith('.mjs')
+
+  const isCjs = !isEsm
   return {
     isCjs,
     isEsm,

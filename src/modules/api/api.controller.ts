@@ -1,10 +1,10 @@
-import { Controller, Get } from '@nestjs/common'
+// import { Controller, Get } from '@nestjs/common'
 import { ApiService } from './api.service'
 
-@Controller('api')
+// @Controller('api')
 export class ApiController {
   constructor(private readonly apiService: ApiService) {}
 
-  @Get('/cleanCache')
+  //   @Get('/cleanCache')
   async resolveEsmFile() {}
 }

@@ -4,7 +4,6 @@ import fs from 'fs-extra'
 import {
   validatePackagePathname,
   validateNpmPackageName,
-  validatePackageConfig,
 } from '@/utils/validate'
 import { BUILDS_DIR } from '@/constants'
 import { Error404Exception } from '@/common/exception'
@@ -28,8 +27,6 @@ export class EsmService {
     }
 
     await validateNpmPackageName(packageName)
-
-    // await validatePackageConfig(packageName, packageVersion)
 
     const entry = await this.findEntry(packageName, packageVersion, filename)
 

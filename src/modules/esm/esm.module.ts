@@ -1,10 +1,10 @@
 import { MiddlewareConsumer, Module } from '@nestjs/common'
-import { EsmController } from './esm.controller'
+// import { EsmController } from './esm.controller'
 import { EsmService } from './esm.service'
 import { NoQueryMiddleware } from '../../common/middleware'
 
 @Module({
-  controllers: [EsmController],
+  //   controllers: [EsmController],
   providers: [EsmService],
   exports: [EsmService],
 })

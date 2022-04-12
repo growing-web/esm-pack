@@ -5,6 +5,7 @@ import tar from 'tar'
 import { URL } from 'url'
 import https, { RequestOptions } from 'https'
 import request from 'request-promise'
+import progress from 'request-progress'
 import LRUCache from 'lru-cache'
 import { bufferStream } from './bufferStream'
 
@@ -89,17 +90,22 @@ export function getNpmTarball(
 export async function extractTarball(
   destDir: string,
   tarballURL: string,
+  // eslint-disable-next-line
+  progressFunc = (state) => {},
 ): Promise<string[]> {
   return new Promise((resolve, reject) => {
     const allFiles: string[] = []
     const allWriteStream: any[] = []
     const dirCollector: string[] = []
 
-    request({
-      url: tarballURL,
-      timeout: 100000,
-    })
-      .on('error', reject)
+    progress(
+      request({
+        url: tarballURL,
+        timeout: 1000000,
+      }),
+    )
+      .on('progress', progressFunc)
+      //   .on('error', reject)
       .pipe(new tar.Parse())
       .on('entry', (entry) => {
         if (entry.type === 'Directory') {
@@ -129,6 +135,11 @@ export async function extractTarball(
         )
       })
       .on('end', () => {
+        if (progressFunc) {
+          progressFunc({
+            percent: 1,
+          })
+        }
         Promise.all(allWriteStream)
           .then(() => resolve(allFiles))
           .catch(reject)

@@ -3,9 +3,9 @@ import {
   ConfigModule as NestConfigModule,
   ConfigService as NestConfigService,
 } from '@nestjs/config'
-import { ENV } from '../../utils/env'
-import { ConfigService } from '../../config/config.service'
-import appConfiguration from '../../config/app'
+import { ENV } from '@/utils/env'
+import { ConfigService } from '@/config/config.service'
+import appConfiguration from '@/config/app'
 import Joi from '@hapi/joi'
 
 const isBoolean = Joi.string().valid('true', 'false')

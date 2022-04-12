@@ -43,6 +43,7 @@ export class NpmController {
     } else {
       const { entry, filename, packageName } =
         await this.esmService.resolveEsmFile(param['0'])
+
       if (!entry) {
         return res
           .status(404)

@@ -1,8 +1,10 @@
 import nodePolyfills from 'rollup-plugin-node-polyfills'
 import commonjs from '@rollup/plugin-commonjs'
 import resolve from '@rollup/plugin-node-resolve'
-import esbuild from 'rollup-plugin-esbuild'
+// import esbuild from 'rollup-plugin-esbuild'
 import rollupJSONPlugin from '@rollup/plugin-json'
+import replace from '@rollup/plugin-replace'
+import { terser } from 'rollup-plugin-terser'
 import path from 'pathe'
 import fs from 'fs-extra'
 import { rollup } from 'rollup'
@@ -143,24 +145,30 @@ async function doBuild({
       return true
     },
     plugins: [
+      rollupJSONPlugin({}),
       (nodePolyfills as any)(),
       resolve({
         preferBuiltins: true,
         browser: true,
       }),
-      rollupJSONPlugin({}),
-      esbuild({
-        target: 'es2021',
-        // sourceMap: true,
-        minify: minify,
-        minifyWhitespace: minify,
-        minifyIdentifiers: minify,
-        minifySyntax: minify,
-        define: {
-          'process.env.NODE_ENV': NODE_ENV,
-          'globals.process.env.NODE_ENV': NODE_ENV,
-        },
+      replace({
+        preventAssignment: true,
+        'process.env.NODE_ENV': NODE_ENV,
+        'globals.process.env.NODE_ENV': NODE_ENV,
       }),
+      minify && terser(),
+      //   esbuild({
+      //     target: 'es2021',
+      //     // sourceMap: true,
+      //     minify: minify,
+      //     minifyWhitespace: minify,
+      //     minifyIdentifiers: minify,
+      //     minifySyntax: minify,
+      //     define: {
+      //       'process.env.NODE_ENV': NODE_ENV,
+      //       'globals.process.env.NODE_ENV': NODE_ENV,
+      //     },
+      //   }),
       commonjs({
         extensions: EXTENSIONS,
         // esmExternals: true,
@@ -171,7 +179,7 @@ async function doBuild({
         },
       },
       rawPlugin(),
-    ],
+    ].filter(Boolean),
   })
 
   fs.ensureDirSync(buildPath)
@@ -193,13 +201,13 @@ async function doBuild({
   const { output } = await bundle.generate({
     dir: buildPath,
     indent: true,
-    // indent: true,
     esModule: true,
     preferConst: true,
     externalLiveBindings: false,
     freeze: false,
     format: 'esm',
     sourcemap: true,
+    interop: false,
     entryFileNames: (chunk) => {
       const fileName = path.relative(cachePath, chunk.facadeModuleId!)
       if (fileName.endsWith('.js') || fileName.endsWith('.mjs')) {

@@ -111,8 +111,8 @@ describe('resolve files test. ', () => {
     expect(files).toEqual([
       'LICENSE',
       'README.md',
-      'dev.index.js',
-      'dev.index.js.map',
+      //   'dev.index.js',
+      //   'dev.index.js.map',
       'dist/reactivity.cjs.prod.js',
       'dist/reactivity.cjs.prod.js.map',
       'dist/reactivity.esm-browser.js',
