@@ -6,7 +6,7 @@ import _ from 'lodash'
 import path from 'path'
 import fs from 'fs-extra'
 import { fileResolveByExtension } from '@/utils/fileResolver'
-// import { parse as cjsParse } from 'cjs-esm-exports'
+import { parse as cjsParse } from 'cjs-esm-exports'
 import { init as esInit, parse as esParse } from 'es-module-lexer'
 import { fileReader } from '@/utils/file'
 import { FILE_EXCLUDES, FILE_EXTENSIONS, FILES_IGNORE } from '@/constants/index'
@@ -73,7 +73,9 @@ export async function resolveExports(pkg: PackageJson, root: string) {
     main: pkgMain,
     browser: pkgBrowser,
     files: pkgFiles = [],
-  } = pkg
+    // unpkg: pkgUnpkg,
+    // jsdelivr: pkgJsdelivr,
+  } = pkg as any
   const cjsMainFiles: string[] = []
 
   const unStandard = !pkgExports && !pkgMain && !pkgModule
@@ -174,6 +176,15 @@ export async function resolveExports(pkg: PackageJson, root: string) {
   let result = await addCjsFiledToExports({ root, pkgExports, cjsMainFiles })
 
   result = await handlerPkgBrowser(pkgBrowser as any, result)
+
+  //   for (const [key, value] of Object.entries(result)) {
+  //     if (_.isString(value)) {
+  //       const { isUmd } = await getFileType(root, key)
+  //       if (isUmd) {
+  //         Reflect.deleteProperty(result, key)
+  //       }
+  //     }
+  //   }
 
   return result
 }
@@ -509,31 +520,41 @@ async function getFileType(root: string, filepath: string) {
   }
   const pkg = await readPackageJSON(root)
   await esInit
-  const source = fileReader(path.join(root, filepath))
-  const [importer, exporter, facade] = esParse(source)
 
-  //   const { exports, reexports } = cjsParse('', source)
+  const source = fileReader(path.join(root, filepath))
+  const [importer, exporter] = esParse(source)
+
+  const { reexports } = cjsParse(filepath, source, 'production')
 
   // iife or umd
-  if (
+  const isCjs =
     pkg.type !== 'module' &&
     // !(exports.length === 0 && reexports.length === 0) &&
     importer.length === 0 &&
     exporter.length === 0 &&
     !filepath.endsWith('.mjs')
-  ) {
-    return { isCjs: true, isEsm: false, isUmd: false }
+
+  if (isCjs) {
+    const isUmd = !exporter.length && !importer.length && reexports.length === 0
+    return {
+      isCjs: true,
+      isEsm: false,
+      isUmd,
+    }
   }
+
   const isEsm =
-    (importer.length !== 0 && exporter.length !== 0) ||
+    importer.length !== 0 ||
+    exporter.length !== 0 ||
     pkg.type === 'module' ||
     filepath.endsWith('.mjs')
 
-  const isCjs = !isEsm
+  //   const isCjs = !isEsm
+
   return {
     isCjs,
     isEsm,
-    isUmd: !isCjs && !isEsm,
+    isUmd: isCjs && exporter.length === 0,
   }
 }
 

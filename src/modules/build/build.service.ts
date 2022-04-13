@@ -8,9 +8,10 @@ import {
 import {
   Error403Exception,
   Error500Exception,
+  Error404Exception,
 } from '@/common/exception/errorStateException'
 import { CACHE_DIR, ETC_DIR, BUILDS_DIR, PACKAGE_JSON } from '@/constants'
-import { resolvePackage } from './core/resolvePackage'
+import { resolvePackage, normalizeExport } from './core/resolvePackage'
 import { build as rollupBuild } from './core/rollupBuild'
 import { outputErrorLog } from '@/utils/errorLog'
 import { Logger } from '@/plugins/logger'
@@ -18,7 +19,6 @@ import validateNpmPackageName from 'validate-npm-package-name'
 import fs from 'fs-extra'
 import path from 'path'
 import AsyncLock from 'async-lock'
-import { Error404Exception } from '../../common/exception/errorStateException'
 
 const lock = new AsyncLock()
 
@@ -88,7 +88,13 @@ export class BuildService {
     const { buildFiles, copyFiles } = await this.getFiles(cachePath, pkgJson)
     try {
       await fs.remove(buildsPath) // force=true
-      await rollupBuild(buildFiles, buildsPath, cachePath, pkgJson)
+      const removeFiles = await rollupBuild(
+        buildFiles,
+        buildsPath,
+        cachePath,
+        pkgJson,
+      )
+
       await Promise.all(
         copyFiles.map((item) =>
           fs.copy(
@@ -97,11 +103,49 @@ export class BuildService {
           ),
         ),
       )
+
+      await writePackageJSON(
+        path.join(cachePath, 'package.json'),
+        this.filterPkgJson(pkgJson, removeFiles),
+      )
       Reflect.deleteProperty(pkgJson, '__ESMD__')
-      await writePackageJSON(path.join(buildsPath, 'package.json'), pkgJson)
+      await writePackageJSON(
+        path.join(buildsPath, 'package.json'),
+        this.filterPkgJson(pkgJson, removeFiles),
+      )
     } catch (error: any) {
       throw new Error500Exception(error.toString())
     }
+  }
+
+  private filterPkgJson(pkgJson: Record<string, any>, removeFiles: string[]) {
+    if (!removeFiles.length) {
+      return pkgJson
+    }
+
+    const _removeFiles: string[] = []
+    removeFiles.forEach((item) => {
+      _removeFiles.push(item)
+      _removeFiles.push(item.substring(0, item.length - 3))
+      _removeFiles.push(`${item}.map`)
+      _removeFiles.push(`${item}!cjs`)
+    })
+
+    _removeFiles.push(..._removeFiles.map((item) => normalizeExport(item)))
+
+    let files = pkgJson.files
+    const pkgExports = pkgJson.exports
+    files = files.filter((item) => !_removeFiles.includes(item))
+
+    pkgJson.files = files
+
+    for (const key of Object.keys(pkgExports)) {
+      if (_removeFiles.includes(key)) {
+        Reflect.deleteProperty(pkgExports, key)
+      }
+    }
+    pkgJson.exports = pkgExports
+    return pkgJson
   }
 
   private async rewritePackage(cachePath: string) {
@@ -146,7 +190,6 @@ export class BuildService {
       }
       return false
     })
-
     buildFiles = buildFiles.map((item) => path.resolve(cachePath, item))
 
     for (const [key] of Object.entries(browser)) {

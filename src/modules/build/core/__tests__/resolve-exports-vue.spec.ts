@@ -4,7 +4,7 @@ import path from 'path'
 import fs from 'fs-extra'
 
 describe('resolve exports test. ', () => {
-  test('@vueuse/core 8.x', async () => {
+  test('@vueuse/core 8.2.3', async () => {
     const root = path.join(__dirname, './fixtures/packages/vueuse/core/')
     const pkg = fs.readJSONSync(path.join(root, 'main.package.json'))
     const exp = await resolveExports(pkg, root)
@@ -26,7 +26,7 @@ describe('resolve exports test. ', () => {
     })
   })
 
-  test('@vueuse/shared 8.x', async () => {
+  test('@vueuse/shared 8.2.3', async () => {
     const root = path.join(__dirname, './fixtures/packages/vueuse/shared')
     const pkg = fs.readJSONSync(path.join(root, 'main.package.json'))
     const exp = await resolveExports(pkg, root)
@@ -42,7 +42,7 @@ describe('resolve exports test. ', () => {
     })
   })
 
-  test('vue-demi 0.12.x', async () => {
+  test('vue-demi 0.12.5', async () => {
     const root = path.join(__dirname, './fixtures/packages/vue-demi/')
     const pkg = fs.readJSONSync(path.join(root, 'main.package.json'))
     const exp = await resolveExports(pkg, root)
@@ -58,7 +58,7 @@ describe('resolve exports test. ', () => {
     })
   })
 
-  test('vue reactivity 3.2', async () => {
+  test('vue reactivity 3.2.31', async () => {
     const root = path.join(__dirname, './fixtures/packages/vue3/reactivity')
     const pkg = fs.readJSONSync(path.join(root, 'main.package.json'))
     const exp = await resolveExports(pkg, root)
@@ -101,10 +101,6 @@ describe('resolve exports test. ', () => {
         './dist/reactivity.esm-browser.prod.js',
       './package.json': './package.json.js',
       './package.json.js!cjs': './package.json.js',
-      './dist/reactivity.esm-browser.js!cjs':
-        './dist/reactivity.esm-browser.js',
-      './dist/reactivity.esm-browser.prod.js!cjs':
-        './dist/reactivity.esm-browser.prod.js',
     })
   })
 
@@ -185,10 +181,6 @@ describe('resolve exports test. ', () => {
       './dist/runtime-dom.global.prod.js': './dist/runtime-dom.global.prod.js',
       './dist/runtime-dom.global.prod.js!cjs':
         './dist/runtime-dom.global.prod.js',
-      './dist/runtime-dom.esm-browser.js!cjs':
-        './dist/runtime-dom.esm-browser.js',
-      './dist/runtime-dom.esm-browser.prod.js!cjs':
-        './dist/runtime-dom.esm-browser.prod.js',
     })
   })
 
@@ -222,7 +214,6 @@ describe('resolve exports test. ', () => {
       './dist/shared.cjs.prod.js': './dist/shared.cjs.prod.js',
       './dist/shared.cjs.prod.js!cjs': './dist/shared.cjs.prod.js',
       './dist/shared.esm-bundler': './dist/shared.esm-bundler.js',
-      './dist/shared.esm-bundler.js!cjs': './dist/shared.esm-bundler.js',
     })
   })
   test('vue 3.2', async () => {
@@ -286,12 +277,6 @@ describe('resolve exports test. ', () => {
       './dist/vue.cjs.prod.js!cjs': './dist/vue.cjs.prod.js',
       './dist/vue.global.js!cjs': './dist/vue.global.js',
       './dist/vue.global.prod.js!cjs': './dist/vue.global.prod.js',
-      './dist/vue.runtime.esm-browser.prod.js!cjs':
-        './dist/vue.runtime.esm-browser.prod.js',
-      './dist/vue.runtime.esm-browser.js!cjs':
-        './dist/vue.runtime.esm-browser.js',
-      './dist/vue.esm-browser.js!cjs': './dist/vue.esm-browser.js',
-      './dist/vue.esm-browser.prod.js!cjs': './dist/vue.esm-browser.prod.js',
     })
   })
 
@@ -362,10 +347,6 @@ describe('resolve exports test. ', () => {
       './dist/vue.min.js!cjs': './dist/vue.min.js',
 
       // diff
-      './dist/vue.runtime.esm.js!cjs': './dist/vue.runtime.esm.js',
-      './dist/vue.esm.js!cjs': './dist/vue.esm.js',
-      './dist/vue.esm.browser.min.js!cjs': './dist/vue.esm.browser.min.js',
-      './dist/vue.esm.browser.js!cjs': './dist/vue.esm.browser.js',
       './dist/vue.common.dev': './dist/vue.common.dev.js',
       './dist/vue.common.dev.js': './dist/vue.common.dev.js',
       './dist/vue.common.dev.js!cjs': './dist/vue.common.dev.js',

@@ -96,3 +96,12 @@ export const FILES_IGNORE = [
 ]
 
 export const PACKAGE_JSON = 'package.json'
+
+export const MAIN_FIELDS = [
+  'browser:module',
+  'module',
+  'browser',
+  'main:esnext',
+  'jsnext:main',
+  'main',
+]
