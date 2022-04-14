@@ -1,274 +1,192 @@
-import nodePolyfills from 'rollup-plugin-polyfill-node'
-import commonjs from '@rollup/plugin-commonjs'
-import resolve from '@rollup/plugin-node-resolve'
-import esbuild from 'rollup-plugin-esbuild'
-import rollupJSONPlugin from '@rollup/plugin-json'
-import replace from '@rollup/plugin-replace'
-import { terser } from 'rollup-plugin-terser'
-import peerDepsExternal from 'rollup-plugin-peer-deps-external'
-import path from 'pathe'
-import fs from 'fs-extra'
-import { rollup } from 'rollup'
-// import { rawPlugin } from './plugins/raw'
-import { EXTENSIONS, MAIN_FIELDS } from '@/constants'
-// import { isDynamicEntry } from './resolvePackage'
-import type { PackageJson } from 'pkg-types'
-import { rollupPluginWrapInstallTargets } from './plugins/rollup-plugin-wrap-install-targets'
+// import nodePolyfills from 'rollup-plugin-polyfill-node'
+// import commonjs from '@rollup/plugin-commonjs'
+// import resolve from '@rollup/plugin-node-resolve'
+// import esbuild from 'rollup-plugin-esbuild'
+// import rollupJSONPlugin from '@rollup/plugin-json'
+// import peerDepsExternal from 'rollup-plugin-peer-deps-external'
+// import path from 'pathe'
+// import fs from 'fs-extra'
+// import { rollup } from 'rollup'
+// // import { MAIN_FIELDS } from '@/constants'
+// import type { PackageJson } from 'pkg-types'
+// import { rollupPluginWrapTargets } from './plugins/rollup-plugin-wrap-exports'
+// import { rollupPluginNodeProcessPolyfill } from './plugins/rollup-plugin-node-process-polyfill'
 
-export async function build(
-  buildFiles: string[],
-  buildPath: string,
-  cachePath: string,
-  pkg: PackageJson,
-) {
-  //   const inputMap: Record<string, string> = {}
-  //   const devInputMap: Record<string, string> = {}
-  //   const { files: pkgFiles = [] } = pkg
-  //   for (const file of buildFiles) {
-  //     let basename = path.basename(file)
-  //     if (basename.indexOf('.') !== -1)
-  //       basename = basename.substring(0, basename.lastIndexOf('.'))
-  //     let inputName = basename
-  //     let i = 0
-  //     while (inputName in inputMap) {
-  //       inputName = basename + i++
-  //     }
-  //     inputMap[file] = file
+// export async function build(
+//   buildFiles: string[],
+//   buildPath: string,
+//   cachePath: string,
+//   pkg: PackageJson,
+// ) {
+//   const result = await Promise.all(
+//     buildFiles.map((input) =>
+//       doBuild({
+//         input,
+//         buildPath,
+//         cachePath,
+//         env: 'production',
+//         name: pkg.name,
+//       }),
+//     ),
+//   )
 
-  //     // if (pkgFiles.includes(path.relative(cachePath, file))) {
-  //     //   const dynamicEntry = await isDynamicEntry(
-  //     //     fs.readFileSync(file, { encoding: 'utf8' }),
-  //     //   )
-  //     //   if (dynamicEntry) {
-  //     //     devInputMap[file] = file
-  //     //   }
-  //     // }
-  //   }
+//   const removeFiles: string[] = []
+//   for (const { unExportDefaultInput } of result) {
+//     removeFiles.push(
+//       ...unExportDefaultInput.map((item) => path.relative(cachePath, item)),
+//     )
+//   }
 
-  await Promise.all(
-    buildFiles.map((input) =>
-      doBuild({
-        input,
-        buildPath,
-        cachePath,
-        env: 'production',
-        name: pkg.name,
-      }),
-    ),
-  )
+//   //   const emptyInput = await doBuild({
+//   //     input: inputMap,
+//   //     buildPath,
+//   //     cachePath,
+//   //     env: 'production',
+//   //   })
 
-  //   const emptyInput = await doBuild({
-  //     input: inputMap,
-  //     buildPath,
-  //     cachePath,
-  //     env: 'production',
-  //   })
+//   // TODO DEV CDN
 
-  // TODO DEV CDN
+//   //   if (Object.keys(devInputMap).length) {
+//   //     await doBuild({
+//   //       input: devInputMap,
+//   //       buildPath,
+//   //       cachePath,
+//   //       env: 'development',
+//   //       dev: true,
+//   //     })
+//   //   }
 
-  //   if (Object.keys(devInputMap).length) {
-  //     await doBuild({
-  //       input: devInputMap,
-  //       buildPath,
-  //       cachePath,
-  //       env: 'development',
-  //       dev: true,
-  //     })
-  //   }
+//   //   if (Object.keys(emptyInput).length) {
+//   //     await doBuild({
+//   //       input: emptyInput,
+//   //       buildPath,
+//   //       cachePath,
+//   //       env: 'development',
+//   //     })
+//   //   }
+//   return removeFiles
+// }
+// async function doBuild({
+//   input,
+//   cachePath,
+//   buildPath,
+//   env,
+//   name,
+// }: {
+//   input: string
+//   buildPath: string
+//   cachePath: string
+//   env: string
+//   name?: string
+//   dev?: boolean
+// }) {
+//   const emptyInput: string[] = []
+//   const unExportDefaultInput: string[] = []
+//   const NODE_ENV = JSON.stringify(env)
 
-  //   if (Object.keys(emptyInput).length) {
-  //     await doBuild({
-  //       input: emptyInput,
-  //       buildPath,
-  //       cachePath,
-  //       env: 'development',
-  //     })
-  //   }
-}
-async function doBuild({
-  input,
-  cachePath,
-  buildPath,
-  env,
-  dev = false,
-  name,
-}: {
-  input: string
-  buildPath: string
-  cachePath: string
-  env: string
-  name?: string
-  dev?: boolean
-}) {
-  const emptyInput: Record<string, string> = {}
-  const NODE_ENV = JSON.stringify(env)
+//   const minify = true
 
-  const inputKeys = Object.keys(input)
-  const minify = false
-  const bundle = await rollup({
-    input: input,
-    onwarn: (warning, handler) => {
-      if (warning.code === 'UNRESOLVED_IMPORT') {
-        return
-      }
-      if (warning.code === 'EMPTY_BUNDLE' && env === 'production') {
-        const match = warning.message.match(/Generated an empty chunk: "(.*)+"/)
-        if (match) {
-          const key = match?.[1]
-          if (key) {
-            emptyInput[key] = key
-          }
-        }
-        return
-      }
+//   try {
+//     const bundle = await rollup({
+//       input: input,
+//       onwarn: (warning, handler) => {
+//         if (warning.code === 'UNRESOLVED_IMPORT') {
+//           return
+//         }
+//         if (warning.code === 'EMPTY_BUNDLE' && env === 'production') {
+//           const match = warning.message.match(
+//             /Generated an empty chunk: "(.*)+"/,
+//           )
+//           if (match) {
+//             const key = match?.[1]
+//             if (key) {
+//               emptyInput.push(key)
+//             }
+//           }
+//           return
+//         }
 
-      handler(warning)
-    },
-    external: (id) => {
-      if (
-        // inputKeys.includes(path.join(cachePath, id)) ||
-        id.startsWith('esm-pack:') ||
-        id[0] === '.' ||
-        path.isAbsolute(id) ||
-        path.basename(id) === 'package.json'
-      ) {
-        return false
-      }
-      //   const ext = path.extname(id)
-      //   const lastIndex = id.lastIndexOf(ext)
-      //   if (id[0] === '.' || path.isAbsolute(id)) {
-      //   }
+//         handler(warning)
+//       },
+//       external: (id) => {
+//         if (
+//           id.startsWith('esm-pack:') ||
+//           id[0] === '.' ||
+//           path.isAbsolute(id) ||
+//           path.basename(id) === 'package.json'
+//         ) {
+//           return false
+//         }
 
-      //   if (
-      //     input !== id &&
-      //     input !== id.substring(0, lastIndex) &&
-      //     input !== path.join(cachePath, id.substring(0, lastIndex)) &&
-      //     input !== path.join(cachePath, id)
-      //   ) {
-      //     return true
-      //   }
+//         return true
+//       },
+//       treeshake: { moduleSideEffects: true },
+//       plugins: [
+//         peerDepsExternal(),
+//         resolve({
+//           preferBuiltins: false,
+//           browser: true,
+//           extensions: ['.mjs', '.cjs', '.js', '.json', '.node'],
+//         }),
+//         rollupJSONPlugin({
+//           preferConst: true,
+//           compact: false,
+//           namedExports: true,
+//         }),
 
-      //   if (id.startsWith('data:')) {
-      //     return true
-      //   }
+//         commonjs({
+//           extensions: ['.js', '.cjs'],
+//           esmExternals: true,
+//           requireReturnsDefault: 'auto',
+//         }),
 
-      return true
-    },
-    treeshake: { moduleSideEffects: true },
-    plugins: [
-      peerDepsExternal(),
-      resolve({
-        preferBuiltins: false,
-        browser: true,
-        mainFields: [...MAIN_FIELDS],
-        extensions: ['.mjs', '.cjs', '.js', '.json'], // Default: [ '.mjs', '.js', '.json', '.node' ]
-      }),
-      rollupJSONPlugin({
-        preferConst: true,
-        indent: '  ',
-        compact: false,
-        namedExports: true,
-      }),
-      replace({
-        preventAssignment: true,
-        values: {
-          //   'process.env.NODE_ENV': NODE_ENV,
-          //   'globals.process.env.NODE_ENV': NODE_ENV,
-        },
-      }),
-      commonjs({
-        extensions: ['.js', '.cjs'],
-        // esmExternals: true,
-        requireReturnsDefault: 'auto',
-      }),
-      (nodePolyfills as any)(),
+//         rollupPluginWrapTargets(false, name),
+//         esbuild({
+//           target: 'es2021',
+//           minify: minify,
+//           minifyWhitespace: minify,
+//           minifyIdentifiers: minify,
+//           minifySyntax: minify,
+//           define: {
+//             'process.env.NODE_ENV': NODE_ENV,
+//             'globals.process.env.NODE_ENV': NODE_ENV,
+//           },
+//         }),
+//         rollupPluginNodeProcessPolyfill({
+//           NODE_ENV: env,
+//         }),
+//         nodePolyfills(),
+//       ].filter(Boolean),
+//     })
 
-      rollupPluginWrapInstallTargets(false, [name]),
+//     fs.ensureDirSync(buildPath)
 
-      //   minify && terser(),
-      esbuild({
-        target: 'es2021',
-        // sourceMap: true,
-        minify: minify,
-        minifyWhitespace: minify,
-        minifyIdentifiers: minify,
-        minifySyntax: minify,
-        define: {
-          'process.env.NODE_ENV': NODE_ENV,
-          'globals.process.env.NODE_ENV': NODE_ENV,
-        },
-      }),
+//     let file = path.join(buildPath, path.relative(cachePath, input))
 
-      //   rollupPluginNodeProcessPolyfill(env),
-      //   rawPlugin(),
-    ].filter(Boolean),
-  })
+//     if (path.basename(input) === 'package.json') {
+//       file = path.join(buildPath, 'package.json.js')
+//     }
 
-  fs.ensureDirSync(buildPath)
+//     await bundle.write({
+//       file,
+//       exports: 'named',
+//       format: 'esm',
+//       sourcemap: true,
+//     })
 
-  await bundle.write({
-    file: path.join(buildPath, path.relative(cachePath, input)),
-    indent: true,
-    esModule: true,
-    exports: 'named',
-    preferConst: true,
-    externalLiveBindings: false,
-    freeze: false,
-    format: 'esm',
-    sourcemap: true,
-    banner: `/* rollup bundle: ${env}. */`,
-  })
+//     return { emptyInput, unExportDefaultInput: [] }
+//   } catch (error: any) {
+//     const message: string = error?.toString()
+//     if (message) {
+//       const unExportDefault = message.startsWith(
+//         `Error: 'default' is not exported by`,
+//       )
 
-  //   const { output } = await bundle.generate({
-  //     dir: buildPath,
-  //     indent: true,
-  //     esModule: true,
-  //     preferConst: true,
-  //     externalLiveBindings: false,
-  //     freeze: false,
-  //     format: 'esm',
-  //     sourcemap: true,
-  //     interop: false,
-  //     entryFileNames: (chunk) => {
-  //       const fileName = path.relative(cachePath, chunk.facadeModuleId!)
-  //       if (fileName.endsWith('.js') || fileName.endsWith('.mjs')) {
-  //         return fileName
-  //       }
-  //       return `${path.relative(cachePath, chunk.facadeModuleId!)}.js`
-  //     },
-  //     chunkFileNames: '[name].js',
-  //   })
-
-  //   await Promise.all(
-  //     output.map((chunk) => {
-  //       if (chunk.type === 'chunk') {
-  //         const map = chunk.map?.toString()
-  //         const encoding = {
-  //           encoding: 'utf8',
-  //         }
-
-  //         const filename = chunk.fileName
-  //         // const filename = `${
-  //         //   dev && !chunk.fileName.startsWith('_') ? 'dev.' : ''
-  //         // }${chunk.fileName}`
-  //         return Promise.all([
-  //           fs.outputFile(
-  //             path.join(buildPath, filename),
-  //             chunk.code,
-  //             // `/* [esm-pack] bundle for ${env}. */\t${chunk.code}`,
-  //             encoding,
-  //           ),
-  //           map &&
-  //             fs.outputFile(
-  //               path.join(buildPath, `${filename}.map`),
-  //               map,
-  //               encoding,
-  //             ),
-  //         ])
-  //       }
-  //       return () => {}
-  //     }),
-  //   )
-
-  return emptyInput
-}
+//       if (unExportDefault) {
+//         unExportDefaultInput.push(input)
+//         return { unExportDefaultInput, emptyInput }
+//       }
+//     }
+//     throw new Error(error)
+//   }
+// }

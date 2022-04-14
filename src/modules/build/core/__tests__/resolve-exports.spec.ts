@@ -110,14 +110,12 @@ describe('resolve exports test. ', () => {
       './lib/adapters/xhr': './lib/adapters/xhr.js',
       './lib/helpers/isURLSameOrigin': './lib/helpers/isURLSameOrigin.js',
       './lib/helpers/cookies': './lib/helpers/cookies.js',
-      './dist/axios.min': './dist/axios.min.js',
       './lib/core/enhanceError': './lib/core/enhanceError.js',
       './lib/core/dispatchRequest': './lib/core/dispatchRequest.js',
       './lib/adapters/http.js': {
         browser: './lib/adapters/xhr.js',
         default: './lib/adapters/http.js',
       },
-      './dist/axios.min.js': './dist/axios.min.js',
       './package.json': './package.json.js',
       './lib/utils.js': './lib/utils.js',
       './dist/axios.js': './dist/axios.js',
@@ -151,7 +149,6 @@ describe('resolve exports test. ', () => {
       './lib/helpers/isURLSameOrigin.js!cjs':
         './lib/helpers/isURLSameOrigin.js',
       './lib/helpers/cookies.js!cjs': './lib/helpers/cookies.js',
-      './dist/axios.min.js!cjs': './dist/axios.min.js',
       './lib/core/enhanceError.js!cjs': './lib/core/enhanceError.js',
       './lib/core/dispatchRequest.js!cjs': './lib/core/dispatchRequest.js',
       './package.json.js!cjs': './package.json.js',

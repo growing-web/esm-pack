@@ -81,24 +81,13 @@ describe('resolve exports test. ', () => {
       //   './dev.index.js!cjs': './dev.index.js',
       './index.js!cjs': './index.js',
 
-      './dist/reactivity.cjs.prod.js': './dist/reactivity.cjs.prod.js',
-      './dist/reactivity.cjs.prod.js!cjs': './dist/reactivity.cjs.prod.js',
       './dist/reactivity.esm-browser.js': './dist/reactivity.esm-browser.js',
-      './dist/reactivity.esm-browser.prod.js':
-        './dist/reactivity.esm-browser.prod.js',
       './dist/reactivity.global.js': './dist/reactivity.global.js',
       './dist/reactivity.global.js!cjs': './dist/reactivity.global.js',
-      './dist/reactivity.global.prod.js': './dist/reactivity.global.prod.js',
-      './dist/reactivity.global.prod.js!cjs':
-        './dist/reactivity.global.prod.js',
       './index': './index.js',
-      './dist/reactivity.cjs.prod': './dist/reactivity.cjs.prod.js',
       './dist/reactivity.esm-browser': './dist/reactivity.esm-browser.js',
       './dist/reactivity.esm-bundler': './dist/reactivity.esm-bundler.js',
       './dist/reactivity.global': './dist/reactivity.global.js',
-      './dist/reactivity.global.prod': './dist/reactivity.global.prod.js',
-      './dist/reactivity.esm-browser.prod':
-        './dist/reactivity.esm-browser.prod.js',
       './package.json': './package.json.js',
       './package.json.js!cjs': './package.json.js',
     })
@@ -131,9 +120,6 @@ describe('resolve exports test. ', () => {
       './package.json': './package.json.js',
       './package.json.js!cjs': './package.json.js',
 
-      './dist/runtime-core.cjs.prod': './dist/runtime-core.cjs.prod.js',
-      './dist/runtime-core.cjs.prod.js': './dist/runtime-core.cjs.prod.js',
-      './dist/runtime-core.cjs.prod.js!cjs': './dist/runtime-core.cjs.prod.js',
       './dist/runtime-core.esm-bundler': './dist/runtime-core.esm-bundler.js',
     })
   })
@@ -164,23 +150,12 @@ describe('resolve exports test. ', () => {
       './package.json': './package.json.js',
       './package.json.js!cjs': './package.json.js',
 
-      './dist/runtime-dom.cjs.prod': './dist/runtime-dom.cjs.prod.js',
-      './dist/runtime-dom.cjs.prod.js': './dist/runtime-dom.cjs.prod.js',
-      './dist/runtime-dom.cjs.prod.js!cjs': './dist/runtime-dom.cjs.prod.js',
       './dist/runtime-dom.esm-browser': './dist/runtime-dom.esm-browser.js',
       './dist/runtime-dom.esm-browser.js': './dist/runtime-dom.esm-browser.js',
-      './dist/runtime-dom.esm-browser.prod':
-        './dist/runtime-dom.esm-browser.prod.js',
-      './dist/runtime-dom.esm-browser.prod.js':
-        './dist/runtime-dom.esm-browser.prod.js',
       './dist/runtime-dom.esm-bundler': './dist/runtime-dom.esm-bundler.js',
       './dist/runtime-dom.global': './dist/runtime-dom.global.js',
       './dist/runtime-dom.global.js': './dist/runtime-dom.global.js',
       './dist/runtime-dom.global.js!cjs': './dist/runtime-dom.global.js',
-      './dist/runtime-dom.global.prod': './dist/runtime-dom.global.prod.js',
-      './dist/runtime-dom.global.prod.js': './dist/runtime-dom.global.prod.js',
-      './dist/runtime-dom.global.prod.js!cjs':
-        './dist/runtime-dom.global.prod.js',
     })
   })
 
@@ -210,9 +185,6 @@ describe('resolve exports test. ', () => {
       './package.json': './package.json.js',
       './package.json.js!cjs': './package.json.js',
 
-      './dist/shared.cjs.prod': './dist/shared.cjs.prod.js',
-      './dist/shared.cjs.prod.js': './dist/shared.cjs.prod.js',
-      './dist/shared.cjs.prod.js!cjs': './dist/shared.cjs.prod.js',
       './dist/shared.esm-bundler': './dist/shared.esm-bundler.js',
     })
   })
@@ -297,18 +269,11 @@ describe('resolve exports test. ', () => {
       './dist/vue-router.cjs.js!cjs': './dist/vue-router.cjs.js',
       './package.json.js!cjs': './package.json.js',
 
-      './dist/vue-router.cjs.prod': './dist/vue-router.cjs.prod.js',
-      './dist/vue-router.cjs.prod.js': './dist/vue-router.cjs.prod.js',
-      './dist/vue-router.cjs.prod.js!cjs': './dist/vue-router.cjs.prod.js',
       './dist/vue-router.esm-browser': './dist/vue-router.esm-browser.js',
       './dist/vue-router.esm-browser.js': './dist/vue-router.esm-browser.js',
       './dist/vue-router.global': './dist/vue-router.global.js',
       './dist/vue-router.global.js': './dist/vue-router.global.js',
       './dist/vue-router.global.js!cjs': './dist/vue-router.global.js',
-      './dist/vue-router.global.prod': './dist/vue-router.global.prod.js',
-      './dist/vue-router.global.prod.js': './dist/vue-router.global.prod.js',
-      './dist/vue-router.global.prod.js!cjs':
-        './dist/vue-router.global.prod.js',
     })
   })
 
@@ -333,8 +298,6 @@ describe('resolve exports test. ', () => {
       './dist/vue.common.js': './dist/vue.common.js',
       './dist/vue.common': './dist/vue.common.js',
       './package.json': './package.json.js',
-      './dist/vue.min.js': './dist/vue.min.js',
-      './dist/vue.min': './dist/vue.min.js',
       './dist/vue.runtime.esm.js': './dist/vue.runtime.esm.js',
       './dist/vue.esm.browser': './dist/vue.esm.browser.js',
       './dist/vue.runtime.esm': './dist/vue.runtime.esm.js',
@@ -344,42 +307,21 @@ describe('resolve exports test. ', () => {
       './dist/vue.js!cjs': './dist/vue.js',
       './dist/vue.common.js!cjs': './dist/vue.common.js',
       './package.json.js!cjs': './package.json.js',
-      './dist/vue.min.js!cjs': './dist/vue.min.js',
 
       // diff
-      './dist/vue.common.dev': './dist/vue.common.dev.js',
-      './dist/vue.common.dev.js': './dist/vue.common.dev.js',
-      './dist/vue.common.dev.js!cjs': './dist/vue.common.dev.js',
-
-      './dist/vue.common.prod': './dist/vue.common.prod.js',
-      './dist/vue.common.prod.js': './dist/vue.common.prod.js',
-      './dist/vue.common.prod.js!cjs': './dist/vue.common.prod.js',
 
       './dist/vue.esm.browser.js': './dist/vue.esm.browser.js',
-      './dist/vue.esm.browser.min': './dist/vue.esm.browser.min.js',
-      './dist/vue.esm.browser.min.js': './dist/vue.esm.browser.min.js',
 
-      './dist/vue.runtime.common.prod': './dist/vue.runtime.common.prod.js',
-      './dist/vue.runtime.common.prod.js': './dist/vue.runtime.common.prod.js',
-      './dist/vue.runtime.common.prod.js!cjs':
-        './dist/vue.runtime.common.prod.js',
       './dist/vue.runtime.js': './dist/vue.runtime.js',
       './dist/vue.runtime.js!cjs': './dist/vue.runtime.js',
 
       './dist/vue.runtime': './dist/vue.runtime.js',
       './dist/vue.runtime.common': './dist/vue.runtime.common.js',
-      './dist/vue.runtime.common.dev': './dist/vue.runtime.common.dev.js',
-      './dist/vue.runtime.common.dev.js': './dist/vue.runtime.common.dev.js',
-      './dist/vue.runtime.common.dev.js!cjs':
-        './dist/vue.runtime.common.dev.js',
       './dist/vue.runtime.common.js': {
         default: './dist/vue.runtime.common.js',
         development: './dist/vue.runtime.common.js',
         // development: './dist/dev.vue.runtime.common.js',
       },
-      './dist/vue.runtime.min': './dist/vue.runtime.min.js',
-      './dist/vue.runtime.min.js': './dist/vue.runtime.min.js',
-      './dist/vue.runtime.min.js!cjs': './dist/vue.runtime.min.js',
     })
   })
 

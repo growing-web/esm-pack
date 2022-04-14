@@ -177,15 +177,6 @@ export async function resolveExports(pkg: PackageJson, root: string) {
 
   result = await handlerPkgBrowser(pkgBrowser as any, result)
 
-  //   for (const [key, value] of Object.entries(result)) {
-  //     if (_.isString(value)) {
-  //       const { isUmd } = await getFileType(root, key)
-  //       if (isUmd) {
-  //         Reflect.deleteProperty(result, key)
-  //       }
-  //     }
-  //   }
-
   return result
 }
 
@@ -306,18 +297,34 @@ async function findPkgFiles(root: string, pkgFiles: string[] = []) {
   return files.filter((item) => {
     const ext = path.extname(item)
     if (
-      (!ext ||
-        // lodash
-        item.startsWith('_'),
+      !ext ||
       ext === '.ts' ||
-        // test file
-        FILE_EXCLUDES.some((file) => item.includes(file)))
+      // lodash
+      item.startsWith('_') ||
+      excludeFiles(item)
     ) {
       return false
     }
     return FILE_EXTENSIONS.includes(ext)
   })
 }
+
+function excludeFiles(file: string) {
+  // lodash
+  return (
+    file.startsWith('_') ||
+    // test files
+    FILE_EXCLUDES.some((item) => file.includes(item)) ||
+    // min files
+    file.endsWith('.min.js') ||
+    file.endsWith('.prod.js') ||
+    // dev files
+    file.endsWith('.development.js') ||
+    file.endsWith('.dev.js')
+  )
+}
+
+// function filterFiles() {}
 
 async function handleObjectPattern({
   root,

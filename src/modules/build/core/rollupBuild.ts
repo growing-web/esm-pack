@@ -1,23 +1,16 @@
+import type { PackageJson } from 'pkg-types'
 import nodePolyfills from 'rollup-plugin-polyfill-node'
 import commonjs from '@rollup/plugin-commonjs'
 import resolve from '@rollup/plugin-node-resolve'
 import esbuild from 'rollup-plugin-esbuild'
 import rollupJSONPlugin from '@rollup/plugin-json'
-// import replace from '@rollup/plugin-replace'
-// import { terser } from 'rollup-plugin-terser'
 import peerDepsExternal from 'rollup-plugin-peer-deps-external'
 import path from 'pathe'
 import fs from 'fs-extra'
 import { rollup } from 'rollup'
-// import { rawPlugin } from './plugins/raw'
-import {
-  // EXTENSIONS,
-  MAIN_FIELDS,
-} from '@/constants'
-// import { isDynamicEntry } from './resolvePackage'
-import type { PackageJson } from 'pkg-types'
-import { rollupPluginWrapInstallTargets } from './plugins/rollup-plugin-wrap-install-targets'
+import { rollupPluginWrapTargets } from './plugins/rollup-plugin-wrap-exports'
 import { rollupPluginNodeProcessPolyfill } from './plugins/rollup-plugin-node-process-polyfill'
+import { APP_NAME } from '@/constants'
 
 export async function build(
   buildFiles: string[],
@@ -116,31 +109,14 @@ async function doBuild({
         handler(warning)
       },
       external: (id) => {
-        // const ext = path.extname(id)
-        // const lastIndex = id.lastIndexOf(ext)
-
         if (
-          // inputKeys.includes(path.join(cachePath, id)) ||
-          id.startsWith('esm-pack:') ||
+          id.startsWith(`${APP_NAME}:`) ||
           id[0] === '.' ||
           path.isAbsolute(id) ||
           path.basename(id) === 'package.json'
         ) {
           return false
         }
-
-        //   if (
-        //     input !== id &&
-        //     input !== id.substring(0, lastIndex) &&
-        //     input !== path.join(cachePath, id.substring(0, lastIndex)) &&
-        //     input !== path.join(cachePath, id)
-        //   ) {
-        //     return true
-        //   }
-
-        //   if (id.startsWith('data:')) {
-        //     return true
-        //   }
 
         return true
       },
@@ -150,7 +126,6 @@ async function doBuild({
         resolve({
           preferBuiltins: false,
           browser: true,
-          mainFields: [...MAIN_FIELDS],
           extensions: ['.mjs', '.cjs', '.js', '.json', '.node'],
         }),
         rollupJSONPlugin({
@@ -165,11 +140,10 @@ async function doBuild({
           esmExternals: true,
           requireReturnsDefault: 'auto',
         }),
-        (nodePolyfills as any)(),
-
-        rollupPluginWrapInstallTargets(false, [name]),
+        rollupPluginWrapTargets(false, name),
         esbuild({
           target: 'es2021',
+          format: 'esm',
           minify: minify,
           minifyWhitespace: minify,
           minifyIdentifiers: minify,
@@ -182,6 +156,7 @@ async function doBuild({
         rollupPluginNodeProcessPolyfill({
           NODE_ENV: env,
         }),
+        nodePolyfills(),
       ].filter(Boolean),
     })
 
@@ -196,7 +171,6 @@ async function doBuild({
     await bundle.write({
       file,
       exports: 'named',
-      format: 'esm',
       sourcemap: true,
     })
 

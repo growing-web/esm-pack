@@ -49,7 +49,6 @@
     ]
   },
   "dependencies": {
-    "@esbuild-plugins/node-modules-polyfill": "^0.1.4",
     "@hapi/joi": "17.1.1",
     "@nestjs/common": "^8.4.4",
     "@nestjs/config": "2.0.0",
@@ -58,6 +57,7 @@
     "@nestjs/throttler": "2.0.1",
     "@rollup/plugin-alias": "^3.1.9",
     "@rollup/plugin-replace": "^4.0.0",
+    "@rollup/pluginutils": "^4.2.1",
     "async-lock": "^1.3.1",
     "cjs-esm-exports": "^0.6.1",
     "cjs-module-lexer": "^1.2.2",

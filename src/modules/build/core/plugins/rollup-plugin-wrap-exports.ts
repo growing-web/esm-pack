@@ -1,46 +1,15 @@
+import type { Plugin } from 'rollup'
 import fs from 'fs'
 import path from 'path'
-import { Plugin } from 'rollup'
-import * as execa from 'execa'
-import {
-  getWebDependencyName,
-  isJavaScript,
-  isRemoteUrl,
-  isTruthy,
-} from './utils'
+import execa from 'execa'
 import isValidIdentifier from 'is-valid-identifier'
 import resolve from 'resolve'
+import { APP_NAME } from '@/constants'
 
 // Use CJS intentionally here! ESM interface is async but CJS is sync, and this file is sync
 const { parse } = require('cjs-module-lexer')
 
-function isValidNamedExport(name: string): boolean {
-  return name !== 'default' && name !== '__esModule' && isValidIdentifier(name)
-}
-
-// Add popular CJS/UMD packages here that use "synthetic" named imports in their documentation.
-// Our scanner can statically scan most packages without an opt-in here, but these packages
-// are built oddly, in a way that we can't statically analyze.
-const TRUSTED_CJS_PACKAGES = [
-  'chai/index.js',
-  'events/events.js',
-  'uuid/index.js',
-]
-
-// These packages are written in such a way that the official CJS scanner succeeds at scanning
-// the file but fails to pick up some exports. Add popular packages here to save everyone a bit
-// of headache.
-// We use the exact file here to match the official package, but not any ESM aliase packages
-// that the user may have installed instead (ex: react-esm).
-const UNSCANNABLE_CJS_PACKAGES = [
-  'chai/index.js',
-  'events/events.js',
-  'property-expr/index.js',
-  // Note: resolved in v4.x release
-  'react-transition-group/index.js',
-]
-
-export function createInstallTarget(specifier: string, all = true) {
+function createTransformTarget(specifier: string, all = true) {
   return {
     specifier,
     all,
@@ -48,6 +17,27 @@ export function createInstallTarget(specifier: string, all = true) {
     namespace: false,
     named: [],
   }
+}
+
+function normalizePath(p: string) {
+  return p.split(path.win32.sep).join(path.posix.sep)
+}
+
+function isJavaScript(pathname: string): boolean {
+  const ext = path.extname(pathname).toLowerCase()
+  return ext === '.js' || ext === '.mjs' || ext === '.cjs'
+}
+
+function isRemoteUrl(val: string): boolean {
+  return /\w+:\/\//.test(val) || val.startsWith('//')
+}
+
+function isTruthy<T>(item: T | false | null | undefined): item is T {
+  return Boolean(item)
+}
+
+function isValidNamedExport(name: string): boolean {
+  return name !== 'default' && name !== '__esModule' && isValidIdentifier(name)
 }
 
 /**
@@ -62,16 +52,17 @@ export function createInstallTarget(specifier: string, all = true) {
  *    b. Rollup uses those exports to drive its tree-shaking algorithm.
  *    c. Rollup uses those exports to inform its "namedExports" for Common.js entrypoints.
  */
-export function rollupPluginWrapInstallTargets(
+export function rollupPluginWrapTargets(
   isTreeshake = false,
-  _installTargets: any[],
-): Plugin {
+  target?: string,
+): Plugin | null {
+  if (!target) {
+    return null
+  }
   const installTargetSummaries: { [loc: string]: any } = {}
   const cjsScannedNamedExports = new Map<string, string[]>()
 
-  const installTargets = _installTargets.map((t) =>
-    typeof t === 'string' ? createInstallTarget(t) : t,
-  )
+  const transformTarget = createTransformTarget(target)
 
   /**
    * Attempt #1: Static analysis: Lower Fidelity, but faster.
@@ -136,13 +127,6 @@ export function rollupPluginWrapInstallTargets(
   function cjsAutoDetectExportsRuntimeTrusted(
     normalizedFileName: string,
   ): string[] | undefined {
-    // Skip if set to not trust package code (besides a few popular, always-trusted packages).
-    if (
-      process.env.ESINSTALL_UNTRUSTED_ENVIRONMENT &&
-      !TRUSTED_CJS_PACKAGES.includes(normalizedFileName)
-    ) {
-      return undefined
-    }
     try {
       const { stdout } = execa.sync(
         `node`,
@@ -172,7 +156,7 @@ export function rollupPluginWrapInstallTargets(
     }
   }
   return {
-    name: 'wrap-install-targets',
+    name: 'rollup-plugin-wrap-exports',
     // Mark some inputs for tree-shaking.
     buildStart(inputOptions) {
       const input = inputOptions.input as { [entryAlias: string]: string }
@@ -184,29 +168,13 @@ export function rollupPluginWrapInstallTargets(
         if (!isJavaScript(val)) {
           continue
         }
-        const allInstallTargets = installTargets.filter(
-          (imp) => getWebDependencyName(imp.specifier) === key,
-        )
-        const installTargetSummary = allInstallTargets.reduce(
-          (summary, imp) => {
-            summary.all = summary.all || imp.all
-            summary.default = summary.default || imp.default || imp.all
-            summary.namespace = summary.namespace || imp.namespace || imp.all
-            summary.named = [...(summary.named || []), ...imp.named]
-            return summary
-          },
-          {} as any,
-        )
-        installTargetSummaries[val] = installTargetSummary
-        const normalizedFileLoc = val.split(path.win32.sep).join(path.posix.sep)
-        const knownBadPackage = UNSCANNABLE_CJS_PACKAGES.some((p) =>
-          normalizedFileLoc.includes(
-            `node_modules/${p}${p.endsWith('.js') ? '' : '/'}`,
-          ),
-        )
+
+        installTargetSummaries[val] = transformTarget
+        const normalizedFileLoc = normalizePath(val)
+
         const cjsExports =
           // If we can trust the static analyzer, run that first.
-          (!knownBadPackage && cjsAutoDetectExportsStatic(val)) ||
+          cjsAutoDetectExportsStatic(val) ||
           // Otherwise, run our more powerful, runtime analysis.
           // Attempted trusted first (won't run in untrusted environments).
           cjsAutoDetectExportsRuntimeTrusted(normalizedFileLoc) ||
@@ -214,27 +182,25 @@ export function rollupPluginWrapInstallTargets(
 
         if (cjsExports && cjsExports.length > 0) {
           cjsScannedNamedExports.set(normalizedFileLoc, cjsExports)
-          input[key] = `esm-pack:${val}`
+          input[key] = `${APP_NAME}:${val}`
         }
       }
     },
     resolveId(id) {
-      if (id.startsWith('esm-pack:')) {
+      if (id.startsWith(`${APP_NAME}:`)) {
         return id
       }
       return null
     },
     load(id) {
-      if (!id.startsWith('esm-pack:')) {
+      if (!id.startsWith(`${APP_NAME}:`)) {
         return null
       }
-      const fileLoc = id.substring('esm-pack:'.length)
-      // Reduce all install targets into a single "summarized" install target.
+      const fileLoc = id.substring(`${APP_NAME}:`.length)
       const installTargetSummary = installTargetSummaries[fileLoc]
       let uniqueNamedExports = Array.from(new Set(installTargetSummary.named))
-      const normalizedFileLoc = fileLoc
-        .split(path.win32.sep)
-        .join(path.posix.sep)
+      const normalizedFileLoc = normalizePath(fileLoc)
+
       const scannedNamedExports = cjsScannedNamedExports.get(normalizedFileLoc)
       if (
         scannedNamedExports &&
