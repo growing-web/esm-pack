@@ -11,7 +11,7 @@ import {
   Error404Exception,
 } from '@/common/exception/errorStateException'
 import { CACHE_DIR, ETC_DIR, BUILDS_DIR, PACKAGE_JSON } from '@/constants'
-import { resolvePackage, normalizeExport } from './core/resolvePackage'
+import { resolvePackage } from './core/resolvePackage'
 import { build as rollupBuild } from './core/rollupBuild'
 import { outputErrorLog } from '@/utils/errorLog'
 import { Logger } from '@/plugins/logger'
@@ -83,17 +83,18 @@ export class BuildService {
       )
     }
 
+    // HACK There may be build issues dealing with node.js modules
+    if (packageName === '@jspm/core') {
+      fs.copy(cachePath, buildsPath)
+      return
+    }
+
     const pkgJson = await this.rewritePackage(cachePath)
 
     const { buildFiles, copyFiles } = await this.getFiles(cachePath, pkgJson)
     try {
       await fs.remove(buildsPath) // force=true
-      const removeFiles = await rollupBuild(
-        buildFiles,
-        buildsPath,
-        cachePath,
-        pkgJson,
-      )
+      await rollupBuild(buildFiles, buildsPath, cachePath, pkgJson)
 
       await Promise.all(
         copyFiles.map((item) =>
@@ -104,49 +105,42 @@ export class BuildService {
         ),
       )
 
-      await writePackageJSON(
-        path.join(cachePath, 'package.json'),
-        this.filterPkgJson(pkgJson, removeFiles),
-      )
       Reflect.deleteProperty(pkgJson, '__ESMD__')
-      await writePackageJSON(
-        path.join(buildsPath, 'package.json'),
-        this.filterPkgJson(pkgJson, removeFiles),
-      )
+      await writePackageJSON(path.join(buildsPath, 'package.json'), pkgJson)
     } catch (error: any) {
       throw new Error500Exception(error.toString())
     }
   }
 
-  private filterPkgJson(pkgJson: Record<string, any>, removeFiles: string[]) {
-    if (!removeFiles.length) {
-      return pkgJson
-    }
+  //   private filterPkgJson(pkgJson: Record<string, any>, removeFiles: string[]) {
+  //     if (!removeFiles.length) {
+  //       return pkgJson
+  //     }
 
-    const _removeFiles: string[] = []
-    removeFiles.forEach((item) => {
-      _removeFiles.push(item)
-      _removeFiles.push(item.substring(0, item.length - 3))
-      _removeFiles.push(`${item}.map`)
-      _removeFiles.push(`${item}!cjs`)
-    })
+  //     const _removeFiles: string[] = []
+  //     removeFiles.forEach((item) => {
+  //       _removeFiles.push(item)
+  //       _removeFiles.push(item.substring(0, item.length - 3))
+  //       _removeFiles.push(`${item}.map`)
+  //       _removeFiles.push(`${item}!cjs`)
+  //     })
 
-    _removeFiles.push(..._removeFiles.map((item) => normalizeExport(item)))
+  //     _removeFiles.push(..._removeFiles.map((item) => normalizeExport(item)))
 
-    let files = pkgJson.files
-    const pkgExports = pkgJson.exports
-    files = files.filter((item) => !_removeFiles.includes(item))
+  //     let files = pkgJson.files
+  //     const pkgExports = pkgJson.exports
+  //     files = files.filter((item) => !_removeFiles.includes(item))
 
-    pkgJson.files = files
+  //     pkgJson.files = files
 
-    for (const key of Object.keys(pkgExports)) {
-      if (_removeFiles.includes(key)) {
-        Reflect.deleteProperty(pkgExports, key)
-      }
-    }
-    pkgJson.exports = pkgExports
-    return pkgJson
-  }
+  //     for (const key of Object.keys(pkgExports)) {
+  //       if (_removeFiles.includes(key)) {
+  //         Reflect.deleteProperty(pkgExports, key)
+  //       }
+  //     }
+  //     pkgJson.exports = pkgExports
+  //     return pkgJson
+  //   }
 
   private async rewritePackage(cachePath: string) {
     const pkg = await resolvePackage(cachePath)

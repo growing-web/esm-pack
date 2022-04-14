@@ -67,27 +67,21 @@ describe('resolve exports test. ', () => {
       '.': {
         module: './dist/reactivity.esm-bundler.js',
         default: {
-          //   development: './dev.index.js',
-          development: './index.js',
+          development: './dev.index.js',
           default: './index.js',
         },
       },
       './index.js': {
-        // development: './dev.index.js',
-        development: './index.js',
+        development: './dev.index.js',
         default: './index.js',
       },
       './dist/reactivity.esm-bundler.js': './dist/reactivity.esm-bundler.js',
-      //   './dev.index.js!cjs': './dev.index.js',
       './index.js!cjs': './index.js',
+      './index': './index.js',
 
       './dist/reactivity.esm-browser.js': './dist/reactivity.esm-browser.js',
-      './dist/reactivity.global.js': './dist/reactivity.global.js',
-      './dist/reactivity.global.js!cjs': './dist/reactivity.global.js',
-      './index': './index.js',
       './dist/reactivity.esm-browser': './dist/reactivity.esm-browser.js',
       './dist/reactivity.esm-bundler': './dist/reactivity.esm-bundler.js',
-      './dist/reactivity.global': './dist/reactivity.global.js',
       './package.json': './package.json.js',
       './package.json.js!cjs': './package.json.js',
     })
@@ -102,19 +96,16 @@ describe('resolve exports test. ', () => {
       '.': {
         module: './dist/runtime-core.esm-bundler.js',
         default: {
-          development: './index.js',
-          //   development: './dev.index.js',
+          development: './dev.index.js',
           default: './index.js',
         },
       },
       './index.js': {
-        development: './index.js',
-        // development: './dev.index.js',
+        development: './dev.index.js',
         default: './index.js',
       },
       './dist/runtime-core.esm-bundler.js':
         './dist/runtime-core.esm-bundler.js',
-      //   './dev.index.js!cjs': './dev.index.js',
       './index.js!cjs': './index.js',
       './index': './index.js',
       './package.json': './package.json.js',
@@ -133,18 +124,15 @@ describe('resolve exports test. ', () => {
       '.': {
         module: './dist/runtime-dom.esm-bundler.js',
         default: {
-          development: './index.js',
-          //   development: './dev.index.js',
+          development: './dev.index.js',
           default: './index.js',
         },
       },
       './index.js': {
-        // development: './dev.index.js',
-        development: './index.js',
+        development: './dev.index.js',
         default: './index.js',
       },
       './dist/runtime-dom.esm-bundler.js': './dist/runtime-dom.esm-bundler.js',
-      //   './dev.index.js!cjs': './dev.index.js',
       './index.js!cjs': './index.js',
       './index': './index.js',
       './package.json': './package.json.js',
@@ -153,9 +141,6 @@ describe('resolve exports test. ', () => {
       './dist/runtime-dom.esm-browser': './dist/runtime-dom.esm-browser.js',
       './dist/runtime-dom.esm-browser.js': './dist/runtime-dom.esm-browser.js',
       './dist/runtime-dom.esm-bundler': './dist/runtime-dom.esm-bundler.js',
-      './dist/runtime-dom.global': './dist/runtime-dom.global.js',
-      './dist/runtime-dom.global.js': './dist/runtime-dom.global.js',
-      './dist/runtime-dom.global.js!cjs': './dist/runtime-dom.global.js',
     })
   })
 
@@ -168,18 +153,15 @@ describe('resolve exports test. ', () => {
       '.': {
         module: './dist/shared.esm-bundler.js',
         default: {
-          //   development: './dev.index.js',
-          development: './index.js',
+          development: './dev.index.js',
           default: './index.js',
         },
       },
       './index.js': {
-        development: './index.js',
-        // development: './dev.index.js',
+        development: './dev.index.js',
         default: './index.js',
       },
       './dist/shared.esm-bundler.js': './dist/shared.esm-bundler.js',
-      //   './dev.index.js!cjs': './dev.index.js',
       './index.js!cjs': './index.js',
       './index': './index.js',
       './package.json': './package.json.js',
@@ -204,8 +186,7 @@ describe('resolve exports test. ', () => {
           default: './dist/vue.runtime.esm-bundler.js',
         },
         require: {
-          //   development: './dev.index.js',
-          development: './index.js',
+          development: './dev.index.js',
           default: './index.js',
         },
         types: './dist/vue.d.ts',
@@ -241,7 +222,7 @@ describe('resolve exports test. ', () => {
       './dist/vue.runtime.global.prod.js!cjs':
         './dist/vue.runtime.global.prod.js',
       './index.js!cjs': './index.js',
-      //   './dev.index.js!cjs': './dev.index.js',
+      './dev.index.js!cjs': './dev.index.js',
       './server-renderer/index.js!cjs': './server-renderer/index.js',
       './compiler-sfc/index.js!cjs': './compiler-sfc/index.js',
       './package.json.js!cjs': './package.json.js',
@@ -271,9 +252,6 @@ describe('resolve exports test. ', () => {
 
       './dist/vue-router.esm-browser': './dist/vue-router.esm-browser.js',
       './dist/vue-router.esm-browser.js': './dist/vue-router.esm-browser.js',
-      './dist/vue-router.global': './dist/vue-router.global.js',
-      './dist/vue-router.global.js': './dist/vue-router.global.js',
-      './dist/vue-router.global.js!cjs': './dist/vue-router.global.js',
     })
   })
 
@@ -286,8 +264,7 @@ describe('resolve exports test. ', () => {
       '.': {
         module: './dist/vue.runtime.esm.js',
         default: {
-          development: './dist/vue.runtime.common.js',
-          //   development: './dist/dev.vue.runtime.common.js',
+          development: './dist/dev.vue.runtime.common.js',
           default: './dist/vue.runtime.common.js',
         },
       },
@@ -295,19 +272,23 @@ describe('resolve exports test. ', () => {
       './dist/vue': './dist/vue.js',
       './dist/vue.esm.js': './dist/vue.esm.js',
       './dist/vue.esm': './dist/vue.esm.js',
-      './dist/vue.common.js': './dist/vue.common.js',
-      './dist/vue.common': './dist/vue.common.js',
       './package.json': './package.json.js',
       './dist/vue.runtime.esm.js': './dist/vue.runtime.esm.js',
       './dist/vue.esm.browser': './dist/vue.esm.browser.js',
       './dist/vue.runtime.esm': './dist/vue.runtime.esm.js',
       './dist/vue.runtime.common.js!cjs': './dist/vue.runtime.common.js',
-      //   './dist/dev.vue.runtime.common.js!cjs':
-      //     './dist/dev.vue.runtime.common.js',
       './dist/vue.js!cjs': './dist/vue.js',
       './dist/vue.common.js!cjs': './dist/vue.common.js',
       './package.json.js!cjs': './package.json.js',
-
+      './dist/vue.common': {
+        default: './dist/vue.common.js',
+        development: './dist/dev.vue.common.js',
+      },
+      './dist/vue.common.js': {
+        default: './dist/vue.common.js',
+        development: './dist/dev.vue.common.js',
+      },
+      './dist/vue.runtime.common': './dist/vue.runtime.common.js',
       // diff
 
       './dist/vue.esm.browser.js': './dist/vue.esm.browser.js',
@@ -316,11 +297,10 @@ describe('resolve exports test. ', () => {
       './dist/vue.runtime.js!cjs': './dist/vue.runtime.js',
 
       './dist/vue.runtime': './dist/vue.runtime.js',
-      './dist/vue.runtime.common': './dist/vue.runtime.common.js',
+
       './dist/vue.runtime.common.js': {
         default: './dist/vue.runtime.common.js',
-        development: './dist/vue.runtime.common.js',
-        // development: './dist/dev.vue.runtime.common.js',
+        development: './dist/dev.vue.runtime.common.js',
       },
     })
   })

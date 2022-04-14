@@ -27,7 +27,7 @@ export class NpmController {
       throw new Error403Exception(`Invalid URL: ${pathname}`)
     }
 
-    const fullVersionReg = /^\d+\.\d+\.\d+[a-zA-Z0-9\.\+\-_]*$/
+    const fullVersionReg = /^\d+\.\d+\.\d+[a-zA-Z0-9.+\-_]*$/
 
     const { packageVersion } = parsed
 
@@ -35,15 +35,14 @@ export class NpmController {
       const ret = await this.npmService.maxSatisfyingVersion(param['0'])
       res
         .status(200)
-        //   .set({
-        //     'Cache-Control': 'no-store',
-        //   })
+        .set({
+          'Cache-Control': 'no-store',
+        })
         .type('text')
         .send(ret)
     } else {
       const { entry, filename, packageName } =
         await this.esmService.resolveEsmFile(param['0'])
-
       if (!entry) {
         return res
           .status(404)

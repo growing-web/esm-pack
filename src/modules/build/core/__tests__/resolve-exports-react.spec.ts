@@ -11,19 +11,30 @@ describe('resolve exports test. ', () => {
 
     expect(exp).toEqual({
       '.': {
-        development: './index.js',
+        development: './dev.index.js',
         default: './index.js',
       },
       './package.json': './package.json.js',
       './index.js!cjs': './index.js',
       './package.json.js!cjs': './package.json.js',
 
-      // diff
-      './jsx-dev-runtime': './jsx-dev-runtime.js',
-      './jsx-dev-runtime.js': './jsx-dev-runtime.js',
+      './jsx-dev-runtime': {
+        default: './jsx-dev-runtime.js',
+        development: './dev.jsx-dev-runtime.js',
+      },
+      './jsx-dev-runtime.js': {
+        default: './jsx-dev-runtime.js',
+        development: './dev.jsx-dev-runtime.js',
+      },
+      './jsx-runtime': {
+        default: './jsx-runtime.js',
+        development: './dev.jsx-runtime.js',
+      },
+      './jsx-runtime.js': {
+        default: './jsx-runtime.js',
+        development: './dev.jsx-runtime.js',
+      },
       './jsx-dev-runtime.js!cjs': './jsx-dev-runtime.js',
-      './jsx-runtime': './jsx-runtime.js',
-      './jsx-runtime.js': './jsx-runtime.js',
       './jsx-runtime.js!cjs': './jsx-runtime.js',
       './index': './index.js',
       './index.js': './index.js',
@@ -36,20 +47,29 @@ describe('resolve exports test. ', () => {
 
     expect(exp).toEqual({
       '.': {
-        // development: './dev.index.js',
-        development: './index.js',
+        development: './dev.index.js',
         default: './index.js',
       },
       './package.json': './package.json.js',
       './index.js!cjs': './index.js',
       './package.json.js!cjs': './package.json.js',
-
-      // diff
-      './jsx-dev-runtime': './jsx-dev-runtime.js',
-      './jsx-dev-runtime.js': './jsx-dev-runtime.js',
+      './jsx-dev-runtime': {
+        default: './jsx-dev-runtime.js',
+        development: './dev.jsx-dev-runtime.js',
+      },
+      './jsx-dev-runtime.js': {
+        default: './jsx-dev-runtime.js',
+        development: './dev.jsx-dev-runtime.js',
+      },
+      './jsx-runtime': {
+        default: './jsx-runtime.js',
+        development: './dev.jsx-runtime.js',
+      },
+      './jsx-runtime.js': {
+        default: './jsx-runtime.js',
+        development: './dev.jsx-runtime.js',
+      },
       './jsx-dev-runtime.js!cjs': './jsx-dev-runtime.js',
-      './jsx-runtime': './jsx-runtime.js',
-      './jsx-runtime.js': './jsx-runtime.js',
       './jsx-runtime.js!cjs': './jsx-runtime.js',
       './index': './index.js',
       './index.js': './index.js',

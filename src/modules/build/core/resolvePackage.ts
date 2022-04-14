@@ -73,8 +73,6 @@ export async function resolveExports(pkg: PackageJson, root: string) {
     main: pkgMain,
     browser: pkgBrowser,
     files: pkgFiles = [],
-    // unpkg: pkgUnpkg,
-    // jsdelivr: pkgJsdelivr,
   } = pkg as any
   const cjsMainFiles: string[] = []
 
@@ -85,7 +83,12 @@ export async function resolveExports(pkg: PackageJson, root: string) {
     // export include {"./*":"./*"}
     if (_.isObject(pkgExports)) {
       if (pkgExports['./*'] === './*') {
-        return addCjsFiledToExports({ root, pkgExports, cjsMainFiles })
+        const result = await addCjsFiledToExports({
+          root,
+          pkgExports,
+          cjsMainFiles,
+        })
+        return await developmentifyExports(result, root)
       }
       pkgExports['./package.json'] = './package.json.js'
     }
@@ -108,7 +111,12 @@ export async function resolveExports(pkg: PackageJson, root: string) {
       }
     }
 
-    return addCjsFiledToExports({ root, pkgExports, cjsMainFiles })
+    const result = await addCjsFiledToExports({
+      root,
+      pkgExports,
+      cjsMainFiles,
+    })
+    return await developmentifyExports(result, root)
   } else if (!pkgExports) {
     // const cjsManiFiles: string = []
 
@@ -177,7 +185,7 @@ export async function resolveExports(pkg: PackageJson, root: string) {
 
   result = await handlerPkgBrowser(pkgBrowser as any, result)
 
-  return result
+  return await developmentifyExports(result, root)
 }
 
 export async function resolveFiles(
@@ -187,12 +195,6 @@ export async function resolveFiles(
 ) {
   let { files = [] } = pkg
   files = []
-  //   files = files.filter((item) => {
-  //     return !(
-  //       //   item.includes('.d.ts') ||
-  //       (item.includes('*') || !item.endsWith('js'))
-  //     )
-  //   })
 
   // add package.json、package.json.js to files
   files.push(...['', '.js'].map((item) => `package.json${item}`))
@@ -227,6 +229,49 @@ export async function resolveFiles(
   files.push(...matchFiles, ...matchTsFiles)
   files = files.filter((item) => !['*', '.', './', './*'].includes(item))
   return Array.from(new Set(files)).sort()
+}
+
+async function developmentifyExports(pkgExports: Recordable, root: string) {
+  for (const [key, value] of Object.entries(pkgExports)) {
+    const ext = path.extname(key)
+
+    if (
+      !ext ||
+      key.endsWith('.prod.cjs') ||
+      !['.js', '.cjs'].includes(ext) ||
+      !_.isString(value) ||
+      key === './index.js'
+    ) {
+      continue
+    }
+
+    const filepath = path.join(root, key)
+    if (!fs.existsSync(filepath)) {
+      continue
+    }
+
+    const { isEsm } = await getFileType(root, key)
+    if (isEsm) {
+      continue
+    }
+
+    const content = fileReader(filepath)
+    const dynamicEntry = await isDynamicEntry(content)
+    if (dynamicEntry) {
+      const devKeys = await resolveDevFilename(key)
+      const itemExports = {
+        default: key,
+        development: devKeys,
+      }
+      pkgExports[key] = itemExports
+      const unExtKey = key.substring(0, key.length - ext.length)
+      if (pkgExports[unExtKey]) {
+        pkgExports[unExtKey] = itemExports
+      }
+    }
+  }
+
+  return pkgExports
 }
 
 async function joinFilesToExports(root: string, pkgFiles: string[]) {
@@ -269,10 +314,7 @@ async function createCjsMainFiles(root: string, pkgMain: string) {
   //   const isDynamic = await getIsDynamic(root, pkgMain)
   const cjsMainFiles: string[] = []
   if (isCjs) {
-    cjsMainFiles.push(
-      ...[pkgMain],
-      //   ...(isDynamic ? [await resolveDevFilename(pkgMain)] : []),
-    )
+    cjsMainFiles.push(...[pkgMain])
   }
   return cjsMainFiles
 }
@@ -293,7 +335,7 @@ async function findPkgFiles(root: string, pkgFiles: string[] = []) {
           }
         })
   const files = await fg(pattern, { cwd: root, ignore: FILES_IGNORE })
-
+  const pkg = await readPackageJSON(root)
   return files.filter((item) => {
     const ext = path.extname(item)
     if (
@@ -301,7 +343,7 @@ async function findPkgFiles(root: string, pkgFiles: string[] = []) {
       ext === '.ts' ||
       // lodash
       item.startsWith('_') ||
-      excludeFiles(item)
+      excludeFiles(pkg, item)
     ) {
       return false
     }
@@ -309,7 +351,7 @@ async function findPkgFiles(root: string, pkgFiles: string[] = []) {
   })
 }
 
-function excludeFiles(file: string) {
+function excludeFiles(pkg: Recordable, file: string) {
   // lodash
   return (
     file.startsWith('_') ||
@@ -320,7 +362,9 @@ function excludeFiles(file: string) {
     file.endsWith('.prod.js') ||
     // dev files
     file.endsWith('.development.js') ||
-    file.endsWith('.dev.js')
+    file.endsWith('.dev.js') ||
+    // global files
+    file.endsWith('.global.js')
   )
 }
 
@@ -473,11 +517,11 @@ async function resolveMain(root: string, pkgMain: string) {
 
   return {
     // TODO dev file
-    development: normalizeMain,
-    // development: !isDynamicEntry
-    //   ? normalizeMain
-    //   : // "./index.js" => "./dev.index.js"
-    //     await resolveDevFilename(normalizeMain),
+    // development: normalizeMain,
+    development: !isDynamicEntry
+      ? normalizeMain
+      : // "./index.js" => "./dev.index.js"
+        await resolveDevFilename(normalizeMain),
     default: normalizeMain,
   }
 }
@@ -515,7 +559,10 @@ export async function isDynamicEntry(source: string) {
     // )
     // return devReexports?.length !== 0 && prodReexports?.length !== 0
     // process.env.NODE_ENV === 'production'
-    return source.replace(/\s*/g, '').includes(`process.env.NODE_ENV==`)
+    return (
+      source.replace(/\s*/g, '').includes(`process.env.NODE_ENV==`) ||
+      source.replace(/\s*/g, '').includes(`process.env.NODE_ENV!=`)
+    )
   } catch (error) {
     return false
   }

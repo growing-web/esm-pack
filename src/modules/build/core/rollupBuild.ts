@@ -1,5 +1,6 @@
 import type { PackageJson } from 'pkg-types'
-import nodePolyfills from 'rollup-plugin-polyfill-node'
+// import nodePolyfills from 'rollup-plugin-polyfill-node'
+import nodePolyfills from 'rollup-plugin-node-polyfills'
 import commonjs from '@rollup/plugin-commonjs'
 import resolve from '@rollup/plugin-node-resolve'
 import esbuild from 'rollup-plugin-esbuild'
@@ -11,6 +12,8 @@ import { rollup } from 'rollup'
 import { rollupPluginWrapTargets } from './plugins/rollup-plugin-wrap-exports'
 import { rollupPluginNodeProcessPolyfill } from './plugins/rollup-plugin-node-process-polyfill'
 import { APP_NAME } from '@/constants'
+import { isDynamicEntry } from './resolvePackage'
+import { rollupUrlReplacePlugin } from './plugins/rollup-plugin-url-replace'
 
 export async function build(
   buildFiles: string[],
@@ -18,7 +21,7 @@ export async function build(
   cachePath: string,
   pkg: PackageJson,
 ) {
-  const result = await Promise.all(
+  await Promise.all(
     buildFiles.map((input) =>
       doBuild({
         input,
@@ -30,41 +33,32 @@ export async function build(
     ),
   )
 
-  const removeFiles: string[] = []
-  for (const { unExportDefaultInput } of result) {
-    removeFiles.push(
-      ...unExportDefaultInput.map((item) => path.relative(cachePath, item)),
+  const devBuildFiles: string[] = []
+
+  await Promise.all(
+    buildFiles.map(async (file) => {
+      const dynamicEntry = await isDynamicEntry(
+        fs.readFileSync(file, { encoding: 'utf8' }),
+      )
+      if (dynamicEntry) {
+        devBuildFiles.push(file)
+      }
+    }),
+  )
+
+  if (devBuildFiles.length) {
+    await Promise.all(
+      devBuildFiles.map((input) =>
+        doBuild({
+          input,
+          buildPath,
+          cachePath,
+          env: 'development',
+          name: pkg.name,
+        }),
+      ),
     )
   }
-
-  //   const emptyInput = await doBuild({
-  //     input: inputMap,
-  //     buildPath,
-  //     cachePath,
-  //     env: 'production',
-  //   })
-
-  // TODO DEV CDN
-
-  //   if (Object.keys(devInputMap).length) {
-  //     await doBuild({
-  //       input: devInputMap,
-  //       buildPath,
-  //       cachePath,
-  //       env: 'development',
-  //       dev: true,
-  //     })
-  //   }
-
-  //   if (Object.keys(emptyInput).length) {
-  //     await doBuild({
-  //       input: emptyInput,
-  //       buildPath,
-  //       cachePath,
-  //       env: 'development',
-  //     })
-  //   }
-  return removeFiles
 }
 async function doBuild({
   input,
@@ -81,9 +75,10 @@ async function doBuild({
   dev?: boolean
 }) {
   const emptyInput: string[] = []
-  const unExportDefaultInput: string[] = []
+  //   const unExportDefaultInput: string[] = []
   const NODE_ENV = JSON.stringify(env)
 
+  const isDevelopment = env === 'development'
   const minify = true
 
   try {
@@ -118,6 +113,10 @@ async function doBuild({
           return false
         }
 
+        if (['process', 'Buffer'].includes(id)) {
+          return false
+        }
+
         return true
       },
       treeshake: { moduleSideEffects: true },
@@ -134,20 +133,17 @@ async function doBuild({
           compact: false,
           namedExports: true,
         }),
-
         commonjs({
           extensions: ['.js', '.cjs'],
           esmExternals: true,
           requireReturnsDefault: 'auto',
         }),
+        rollupUrlReplacePlugin(),
         rollupPluginWrapTargets(false, name),
         esbuild({
           target: 'es2021',
           format: 'esm',
           minify: minify,
-          minifyWhitespace: minify,
-          minifyIdentifiers: minify,
-          minifySyntax: minify,
           define: {
             'process.env.NODE_ENV': NODE_ENV,
             'globals.process.env.NODE_ENV': NODE_ENV,
@@ -163,9 +159,13 @@ async function doBuild({
     fs.ensureDirSync(buildPath)
 
     let file = path.join(buildPath, path.relative(cachePath, input))
-
-    if (path.basename(input) === 'package.json') {
+    const basename = path.basename(input)
+    if (basename === 'package.json') {
       file = path.join(buildPath, 'package.json.js')
+    }
+
+    if (isDevelopment) {
+      file = file.replace(basename, `dev.${basename}`)
     }
 
     await bundle.write({
@@ -176,17 +176,6 @@ async function doBuild({
 
     return { emptyInput, unExportDefaultInput: [] }
   } catch (error: any) {
-    const message: string = error?.toString()
-    if (message) {
-      const unExportDefault = message.startsWith(
-        `Error: 'default' is not exported by`,
-      )
-
-      if (unExportDefault) {
-        unExportDefaultInput.push(input)
-        return { unExportDefaultInput, emptyInput }
-      }
-    }
     throw new Error(error)
   }
 }
