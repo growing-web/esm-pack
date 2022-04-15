@@ -44,6 +44,12 @@ export class BuildService {
   }
 
   async doBuild(packageName: string, packageVersion: string, force = false) {
+    if (!packageVersion || !packageName) {
+      throw new Error404Exception(
+        `Cannot find package ${packageName || ''}@${packageVersion || ''}`,
+      )
+    }
+
     validateNpmPackageName(packageName)
 
     const libDir = `${packageName}@${packageVersion}`
@@ -66,10 +72,10 @@ export class BuildService {
       )
     }
 
-    if (!isCached && !force) {
+    if (!isCached || force) {
       isCached && (await fs.remove(cachePath)) // force=true
       await validatePackageConfig(packageName, packageVersion)
-      const tarballURL = getTarballURL(packageName, packageVersion)
+      const tarballURL = await getTarballURL(packageName, packageVersion)
       await extractTarball(cachePath, tarballURL)
     }
 
@@ -111,36 +117,6 @@ export class BuildService {
       throw new Error500Exception(error.toString())
     }
   }
-
-  //   private filterPkgJson(pkgJson: Record<string, any>, removeFiles: string[]) {
-  //     if (!removeFiles.length) {
-  //       return pkgJson
-  //     }
-
-  //     const _removeFiles: string[] = []
-  //     removeFiles.forEach((item) => {
-  //       _removeFiles.push(item)
-  //       _removeFiles.push(item.substring(0, item.length - 3))
-  //       _removeFiles.push(`${item}.map`)
-  //       _removeFiles.push(`${item}!cjs`)
-  //     })
-
-  //     _removeFiles.push(..._removeFiles.map((item) => normalizeExport(item)))
-
-  //     let files = pkgJson.files
-  //     const pkgExports = pkgJson.exports
-  //     files = files.filter((item) => !_removeFiles.includes(item))
-
-  //     pkgJson.files = files
-
-  //     for (const key of Object.keys(pkgExports)) {
-  //       if (_removeFiles.includes(key)) {
-  //         Reflect.deleteProperty(pkgExports, key)
-  //       }
-  //     }
-  //     pkgJson.exports = pkgExports
-  //     return pkgJson
-  //   }
 
   private async rewritePackage(cachePath: string) {
     const pkg = await resolvePackage(cachePath)

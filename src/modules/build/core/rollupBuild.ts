@@ -1,19 +1,18 @@
 import type { PackageJson } from 'pkg-types'
-// import nodePolyfills from 'rollup-plugin-polyfill-node'
 import nodePolyfills from 'rollup-plugin-node-polyfills'
 import commonjs from '@rollup/plugin-commonjs'
 import resolve from '@rollup/plugin-node-resolve'
 import esbuild from 'rollup-plugin-esbuild'
 import rollupJSONPlugin from '@rollup/plugin-json'
-import peerDepsExternal from 'rollup-plugin-peer-deps-external'
 import path from 'pathe'
 import fs from 'fs-extra'
 import { rollup } from 'rollup'
+import _ from 'lodash'
+import { APP_NAME } from '@/constants'
 import { rollupPluginWrapTargets } from './plugins/rollup-plugin-wrap-exports'
 import { rollupPluginNodeProcessPolyfill } from './plugins/rollup-plugin-node-process-polyfill'
-import { APP_NAME } from '@/constants'
 import { isDynamicEntry } from './resolvePackage'
-import { rollupUrlReplacePlugin } from './plugins/rollup-plugin-url-replace'
+import peerDepsExternal from 'rollup-plugin-peer-deps-external'
 
 export async function build(
   buildFiles: string[],
@@ -21,20 +20,9 @@ export async function build(
   cachePath: string,
   pkg: PackageJson,
 ) {
-  await Promise.all(
-    buildFiles.map((input) =>
-      doBuild({
-        input,
-        buildPath,
-        cachePath,
-        env: 'production',
-        name: pkg.name,
-      }),
-    ),
-  )
+  const inputMap: Record<string, string> = {}
 
   const devBuildFiles: string[] = []
-
   await Promise.all(
     buildFiles.map(async (file) => {
       const dynamicEntry = await isDynamicEntry(
@@ -46,10 +34,46 @@ export async function build(
     }),
   )
 
-  if (devBuildFiles.length) {
-    await Promise.all(
+  for (const file of buildFiles) {
+    let n = file.split('/').pop()
+    if (!n) {
+      continue
+    }
+    const extIndex = n.lastIndexOf('.')
+    if (extIndex !== -1) n = n.slice(0, extIndex)
+    if (inputMap[n]) {
+      const _n = n
+      let i = 1
+      while (inputMap[n]) n = _n + ++i
+    }
+    inputMap[n] = file
+  }
+
+  //   if (buildFiles.length <= 200) {
+  //     await Promise.all(
+  //       buildFiles.map((input) =>
+  //         doBuildSingleEntry({
+  //           input,
+  //           buildPath,
+  //           cachePath,
+  //           env: 'production',
+  //           name: pkg.name,
+  //         }),
+  //       ),
+  //     )
+  //   }
+
+  await Promise.all([
+    doBuildMultipleEntry({
+      input: inputMap,
+      buildPath,
+      cachePath,
+      env: 'production',
+      name: pkg.name,
+    }),
+    Promise.all(
       devBuildFiles.map((input) =>
-        doBuild({
+        doBuildSingleEntry({
           input,
           buildPath,
           cachePath,
@@ -57,10 +81,82 @@ export async function build(
           name: pkg.name,
         }),
       ),
-    )
-  }
+    ),
+  ])
 }
-async function doBuild({
+
+async function doBuildMultipleEntry({
+  input,
+  cachePath,
+  buildPath,
+  env,
+  name,
+}: {
+  input: Record<string, string>
+  buildPath: string
+  cachePath: string
+  env: string
+  name?: string
+}) {
+  const inputKeys = Object.keys(input)
+  const bundle = await rollup({
+    input: input,
+    treeshake: { moduleSideEffects: true },
+    onwarn: onWarning,
+    external: (id) =>
+      !inputKeys.includes(path.join(cachePath, id)) && !needExternal(id),
+    plugins: createRollupPlugins(name, env),
+  })
+
+  fs.ensureDirSync(buildPath)
+
+  const { output } = await bundle.generate({
+    dir: buildPath,
+    format: 'esm',
+    exports: 'named',
+    sourcemap: true,
+    entryFileNames: (chunk) => {
+      let id = chunk.facadeModuleId
+
+      if (id?.startsWith(`${APP_NAME}:`)) {
+        id = id.replace(`${APP_NAME}:`, '')
+      }
+      id = id?.replace(cachePath, '') ?? ''
+      id = id.replace(/^\//, '')
+      if (id.endsWith('.js') || id.endsWith('.mjs')) {
+        return id
+      }
+      return `${id}.js`
+    },
+    chunkFileNames: '[hash].js',
+  })
+
+  await Promise.all(
+    output.map((chunk) => {
+      if (chunk.type === 'chunk') {
+        const map = chunk.map?.toString()
+        const encoding = {
+          encoding: 'utf8',
+        }
+
+        const filename = chunk.fileName
+
+        return Promise.all([
+          fs.outputFile(path.join(buildPath, filename), chunk.code, encoding),
+          map &&
+            fs.outputFile(
+              path.join(buildPath, `${filename}.map`),
+              map,
+              encoding,
+            ),
+        ])
+      }
+      return () => {}
+    }),
+  )
+}
+
+async function doBuildSingleEntry({
   input,
   cachePath,
   buildPath,
@@ -72,88 +168,14 @@ async function doBuild({
   cachePath: string
   env: string
   name?: string
-  dev?: boolean
 }) {
-  const emptyInput: string[] = []
-  //   const unExportDefaultInput: string[] = []
-  const NODE_ENV = JSON.stringify(env)
-
-  const isDevelopment = env === 'development'
-  const minify = true
-
   try {
     const bundle = await rollup({
       input: input,
-      onwarn: (warning, handler) => {
-        if (warning.code === 'UNRESOLVED_IMPORT') {
-          return
-        }
-        if (warning.code === 'EMPTY_BUNDLE' && env === 'production') {
-          const match = warning.message.match(
-            /Generated an empty chunk: "(.*)+"/,
-          )
-          if (match) {
-            const key = match?.[1]
-            if (key) {
-              emptyInput.push(key)
-            }
-          }
-          return
-        }
-
-        handler(warning)
-      },
-      external: (id) => {
-        if (
-          id.startsWith(`${APP_NAME}:`) ||
-          id[0] === '.' ||
-          path.isAbsolute(id) ||
-          path.basename(id) === 'package.json'
-        ) {
-          return false
-        }
-
-        if (['process', 'Buffer'].includes(id)) {
-          return false
-        }
-
-        return true
-      },
       treeshake: { moduleSideEffects: true },
-      plugins: [
-        peerDepsExternal(),
-        resolve({
-          preferBuiltins: false,
-          browser: true,
-          extensions: ['.mjs', '.cjs', '.js', '.json', '.node'],
-        }),
-        rollupJSONPlugin({
-          preferConst: true,
-          indent: '  ',
-          compact: false,
-          namedExports: true,
-        }),
-        commonjs({
-          extensions: ['.js', '.cjs'],
-          esmExternals: true,
-          requireReturnsDefault: 'auto',
-        }),
-        rollupUrlReplacePlugin(),
-        rollupPluginWrapTargets(false, name),
-        esbuild({
-          target: 'es2021',
-          format: 'esm',
-          minify: minify,
-          define: {
-            'process.env.NODE_ENV': NODE_ENV,
-            'globals.process.env.NODE_ENV': NODE_ENV,
-          },
-        }),
-        rollupPluginNodeProcessPolyfill({
-          NODE_ENV: env,
-        }),
-        nodePolyfills(),
-      ].filter(Boolean),
+      onwarn: onWarning,
+      external: (id) => path.join(id) !== path.join(input) && !needExternal(id),
+      plugins: createRollupPlugins(name, env),
     })
 
     fs.ensureDirSync(buildPath)
@@ -164,7 +186,7 @@ async function doBuild({
       file = path.join(buildPath, 'package.json.js')
     }
 
-    if (isDevelopment) {
+    if (env === 'development') {
       file = file.replace(basename, `dev.${basename}`)
     }
 
@@ -173,9 +195,64 @@ async function doBuild({
       exports: 'named',
       sourcemap: true,
     })
-
-    return { emptyInput, unExportDefaultInput: [] }
   } catch (error: any) {
     throw new Error(error)
   }
+}
+
+function createRollupPlugins(name: string | undefined, env: string) {
+  return [
+    peerDepsExternal(),
+    resolve({
+      preferBuiltins: false,
+      browser: true,
+      extensions: ['.mjs', '.cjs', '.js', '.json'],
+    }),
+    rollupJSONPlugin({
+      preferConst: true,
+      indent: '  ',
+      compact: false,
+      namedExports: true,
+    }),
+    commonjs({
+      extensions: ['.js', '.cjs'],
+      esmExternals: true,
+      requireReturnsDefault: 'auto',
+    }),
+    rollupPluginWrapTargets(false, name),
+    esbuild({
+      target: 'es2022',
+      minify: true,
+      define: {
+        'process.env.NODE_ENV': JSON.stringify(env),
+        'process.env.VUE_ENV': JSON.stringify('browser'),
+      },
+    }),
+    rollupPluginNodeProcessPolyfill({
+      NODE_ENV: env,
+    }),
+    (nodePolyfills as any)(),
+    //   rollupUrlReplacePlugin(),
+  ].filter(Boolean)
+}
+
+function needExternal(id: string) {
+  return (
+    id.startsWith(`${APP_NAME}:`) ||
+    id[0] === '.' ||
+    ['process', 'Buffer', 'module'].includes(id) ||
+    path.isAbsolute(id) ||
+    path.basename(id) === 'package.json'
+  )
+}
+
+function onWarning(warning, handler) {
+  if (
+    ['THIS_IS_UNDEFINED', 'UNRESOLVED_IMPORT', 'SOURCEMAP_ERROR'].includes(
+      warning.code,
+    )
+  ) {
+    return
+  }
+  handler(warning)
 }

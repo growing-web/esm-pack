@@ -1,6 +1,5 @@
 import type { PackageJson } from 'pkg-types'
 import { readPackageJSON } from 'pkg-types'
-// import { recursionExportsValues, recursionExportsRemoveDts } from './recursion'
 import fg from 'fast-glob'
 import _ from 'lodash'
 import path from 'path'
@@ -97,7 +96,10 @@ export async function resolveExports(pkg: PackageJson, root: string) {
     }
 
     for (const [key, pattern] of Object.entries(pkgExports)) {
-      if (key.includes('*') && _.isString(pattern) && pattern.includes('*')) {
+      if (
+        (key.includes('*') && _.isString(pattern) && pattern.includes('*')) ||
+        (key.endsWith('/') && _.isString(pattern) && pattern.endsWith('/'))
+      ) {
         await addMatchFileToExports(pattern, pkgExports, root)
         continue
       }
@@ -338,13 +340,7 @@ async function findPkgFiles(root: string, pkgFiles: string[] = []) {
   const pkg = await readPackageJSON(root)
   return files.filter((item) => {
     const ext = path.extname(item)
-    if (
-      !ext ||
-      ext === '.ts' ||
-      // lodash
-      item.startsWith('_') ||
-      excludeFiles(pkg, item)
-    ) {
+    if (!ext || ext === '.ts' || excludeFiles(pkg, item)) {
       return false
     }
     return FILE_EXTENSIONS.includes(ext)
@@ -352,9 +348,7 @@ async function findPkgFiles(root: string, pkgFiles: string[] = []) {
 }
 
 function excludeFiles(pkg: Recordable, file: string) {
-  // lodash
   return (
-    file.startsWith('_') ||
     // test files
     FILE_EXCLUDES.some((item) => file.includes(item)) ||
     // min files
@@ -415,7 +409,9 @@ async function addMatchFileToExports(
   pkgExports: Recordable,
   cwd: string,
 ) {
-  const files = fg.sync(pattern, { cwd })
+  const files = fg.sync(pattern.endsWith('/') ? `${pattern}*` : pattern, {
+    cwd,
+  })
 
   for (const key of files) {
     pkgExports[key] = normalizeExport(key)
@@ -580,10 +576,8 @@ async function getFileType(root: string, filepath: string) {
 
   const { reexports } = cjsParse(filepath, source, 'production')
 
-  // iife or umd
   const isCjs =
     pkg.type !== 'module' &&
-    // !(exports.length === 0 && reexports.length === 0) &&
     importer.length === 0 &&
     exporter.length === 0 &&
     !filepath.endsWith('.mjs')
@@ -602,8 +596,6 @@ async function getFileType(root: string, filepath: string) {
     exporter.length !== 0 ||
     pkg.type === 'module' ||
     filepath.endsWith('.mjs')
-
-  //   const isCjs = !isEsm
 
   return {
     isCjs,

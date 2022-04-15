@@ -6,18 +6,22 @@ export function rollupUrlReplacePlugin(): Plugin {
     name: 'rollup-plugin-url-replace',
 
     transform(code, id) {
-      if (!code.includes('__dirname') && code.includes('__filename')) {
+      if (!/\b__dirname\b/.test(code) || !/\b__filename\b/.test(code)) {
         return null
       }
       const filename = path.basename(id)
 
-      const href = `new URL('.', import.meta.url).href`
-      return {
+      const href = `globalThis.window==globalThis?new URL('.', import.meta.url).href:globalThis.__dirname||''`
+      const ret = {
         code: code
           .replace(/\b__dirname\b/g, href)
           .replace(/\b__filename\b/g, `${href}+'${filename}'`),
         map: null,
       }
+      if (filename === '_root.js') {
+        console.log(ret)
+      }
+      return ret
     },
   }
 }

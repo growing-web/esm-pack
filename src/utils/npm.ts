@@ -9,7 +9,8 @@ import progress from 'request-progress'
 import LRUCache from 'lru-cache'
 import { bufferStream } from './bufferStream'
 
-const npmRegistryURL = process.env.NPM_REGISTRY_URL
+const NPM_REGISTRY_URL = process.env.NPM_REGISTRY_URL
+const FALLBACK_NPM_REGISTRY_URL = process.env.FALLBACK_NPM_REGISTRY_URL
 
 const oneMegabyte = 1024 * 1024
 const oneSecond = 1000
@@ -155,7 +156,7 @@ function encodePackageName(packageName: string) {
 
 async function fetchPackageInfo(packageName: string) {
   const name = encodePackageName(packageName)
-  const infoURL = `${npmRegistryURL}/${name}`
+  const infoURL = `${NPM_REGISTRY_URL}/${name}`
 
   console.debug('Fetching package info for %s from %s', packageName, infoURL)
 
@@ -231,11 +232,27 @@ export async function getPackageConfig(packageName: string, version: string) {
   return value
 }
 
-export function getTarballURL(packageName: string, version: string) {
+export async function getTarballURL(packageName: string, version: string) {
   const tarballName = isScopedPackageName(packageName)
     ? packageName.split('/')[1]
     : packageName
-  return `${npmRegistryURL}/${packageName}/-/${tarballName}-${version}.tgz`
+
+  const tarballURL = `${NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
+
+  const { hostname, pathname } = new URL(tarballURL)
+
+  const options = {
+    agent: agent,
+    hostname: hostname,
+    path: pathname,
+    timeout: 100,
+  }
+
+  const res = await get(options)
+  if (res.statusCode < 400) {
+    return `${NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
+  }
+  return `${FALLBACK_NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
 }
 
 export async function getVersionsAndTags(packageName: string) {
