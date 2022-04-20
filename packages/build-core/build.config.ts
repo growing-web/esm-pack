@@ -8,4 +8,5 @@ export default defineBuildConfig({
     cjsBridge: true,
     emitCJS: true,
   },
+  externals: ['resolve'],
 })
