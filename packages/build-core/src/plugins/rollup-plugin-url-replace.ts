@@ -12,16 +12,12 @@ export function rollupUrlReplacePlugin(): Plugin {
       const filename = path.basename(id)
 
       const href = `globalThis.window==globalThis?new URL('.', import.meta.url).href:globalThis.__dirname||''`
-      const ret = {
+      return {
         code: code
           .replace(/\b__dirname\b/g, href)
           .replace(/\b__filename\b/g, `${href}+'${filename}'`),
         map: null,
       }
-      if (filename === '_root.js') {
-        console.log(ret)
-      }
-      return ret
     },
   }
 }

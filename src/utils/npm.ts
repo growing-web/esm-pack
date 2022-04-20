@@ -33,9 +33,9 @@ const packageConfigExcludeKeys = [
 ]
 
 const cache = new LRUCache({
-  max: oneMegabyte * 40,
-  length: Buffer.byteLength,
-  maxAge: oneSecond,
+  maxSize: oneMegabyte * 40,
+  sizeCalculation: Buffer.byteLength,
+  ttl: oneSecond,
 })
 
 const agent = new https.Agent({

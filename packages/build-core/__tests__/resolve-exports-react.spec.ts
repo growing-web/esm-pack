@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import { resolveExports } from '../resolvePackage'
+import { resolveExports } from '../src/resolvePackage'
 import path from 'path'
 import fs from 'fs-extra'
 

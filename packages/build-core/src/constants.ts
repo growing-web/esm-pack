@@ -1,17 +1,4 @@
-import path from 'path'
-
-const etcDir = '.esmd'
-const cacheDir = 'cache'
-
-export const APP_VERSION = 1
-
 export const APP_NAME = 'esm-pack'
-
-export const ETC_DIR = path.join(process.cwd(), etcDir)
-
-export const CACHE_DIR = path.join(ETC_DIR, cacheDir)
-
-export const BUILDS_DIR = path.join(ETC_DIR, 'builds', `v${APP_VERSION}`)
 
 export const EXTENSIONS = [
   '.ts',
@@ -21,15 +8,6 @@ export const EXTENSIONS = [
   '.js',
   '.jsx',
   '.json',
-]
-
-export const FILE_EXTENSIONS = [
-  ...EXTENSIONS,
-  '.less',
-  '.scss',
-  '.css',
-  '.sass',
-  '.postcss',
 ]
 
 export const FILE_EXCLUDES = [
@@ -83,4 +61,11 @@ export const FILES_IGNORE = [
   '**/.markdownlint.yml/**',
 ]
 
-export const PACKAGE_JSON = 'package.json'
+export const FILE_EXTENSIONS = [
+  ...EXTENSIONS,
+  '.less',
+  '.scss',
+  '.css',
+  '.sass',
+  '.postcss',
+]

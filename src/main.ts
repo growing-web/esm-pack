@@ -12,7 +12,7 @@ import { isDev } from './utils/env'
 import morgan from 'morgan'
 
 async function bootstrap() {
-  process.setMaxListeners(0)
+  //   process.setMaxListeners(0)
   const app = await NestFactory.create<NestExpressApplication>(
     AppModule,
     new ExpressAdapter(),

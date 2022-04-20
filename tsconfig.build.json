@@ -11,6 +11,7 @@
     ".esmd",
     "tests",
     "**/*spec.ts",
+    "**/__tests__/**",
     "**/fixtures/**",
     "**/__snapshots__/**"
   ]

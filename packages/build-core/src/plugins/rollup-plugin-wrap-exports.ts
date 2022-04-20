@@ -4,7 +4,7 @@ import path from 'path'
 import execa from 'execa'
 import isValidIdentifier from 'is-valid-identifier'
 import resolve from 'resolve'
-import { APP_NAME } from '@/constants'
+import { APP_NAME } from '../constants'
 
 // Use CJS intentionally here! ESM interface is async but CJS is sync, and this file is sync
 const { parse } = require('cjs-module-lexer')
@@ -40,18 +40,6 @@ function isValidNamedExport(name: string): boolean {
   return name !== 'default' && name !== '__esModule' && isValidIdentifier(name)
 }
 
-/**
- * rollup-plugin-wrap-install-targets
- *
- * How it works:
- * 1. An array of "install targets" are passed in, describing all known imports + metadata.
- * 2. If isTreeshake: Known imports are marked for tree-shaking by appending 'snowpack-wrap:' to the input value.
- * 3. If autoDetectPackageExports match: Also mark for wrapping, and use automatic export detection.
- * 4. On load, we return a false virtual file for all "snowpack-wrap:" inputs.
- *    a. That virtual file contains only `export ... from 'ACTUAL_FILE_PATH';` exports
- *    b. Rollup uses those exports to drive its tree-shaking algorithm.
- *    c. Rollup uses those exports to inform its "namedExports" for Common.js entrypoints.
- */
 export function rollupPluginWrapTargets(
   isTreeshake = false,
   target?: string,
@@ -64,12 +52,6 @@ export function rollupPluginWrapTargets(
 
   const transformTarget = createTransformTarget(target)
 
-  /**
-   * Attempt #1: Static analysis: Lower Fidelity, but faster.
-   * Do our best job to statically scan a file for named exports. This uses "cjs-module-lexer", the
-   * same CJS export scanner that Node.js uses internally. Very fast, but only works on some modules,
-   * depending on how they were build/written/compiled.
-   */
   function cjsAutoDetectExportsStatic(
     filename: string,
     visited = new Set(),
@@ -113,17 +95,6 @@ export function rollupPluginWrapTargets(
     }
   }
 
-  /**
-   * Attempt #2a - Runtime analysis: More powerful, but slower. (trusted code)
-   * This function spins off a Node.js process to analyze the most accurate set of named imports that this
-   * module supports. If this fails, there's not much else possible that we could do.
-   *
-   * We consider this "trusted" because it will actually run the package code in Node.js on your machine.
-   * Since this is code that you are intentionally bundling into your application, we consider this fine
-   * for most users and equivilent to the current security story of Node.js/npm. But, if you are operating
-   * a service that runs esinstall on arbitrary code, you should set `process.env.ESINSTALL_UNTRUSTED_ENVIRONMENT`
-   * so that this is skipped.
-   */
   function cjsAutoDetectExportsRuntimeTrusted(
     normalizedFileName: string,
   ): string[] | undefined {
@@ -142,12 +113,6 @@ export function rollupPluginWrapTargets(
     }
   }
 
-  /**
-   * Attempt #2b - Sandboxed runtime analysis: More powerful, but slower.
-   * This will only work on UMD and very simple CJS files (require not supported).
-   * Uses VM2 to run safely sandbox untrusted code (no access no Node.js primitives, just JS).
-   * If nothing was detected, return undefined.
-   */
   function cjsAutoDetectExportsRuntimeUntrusted(): string[] | undefined {
     try {
       return exports.filter((identifier) => isValidIdentifier(identifier))

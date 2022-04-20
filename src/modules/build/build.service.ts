@@ -11,8 +11,7 @@ import {
   Error404Exception,
 } from '@/common/exception/errorStateException'
 import { CACHE_DIR, ETC_DIR, BUILDS_DIR, PACKAGE_JSON } from '@/constants'
-import { resolvePackage } from './core/resolvePackage'
-import { build as rollupBuild } from './core/rollupBuild'
+import { build, resolvePackage } from '@growing-web/esm-pack-build-core'
 import { outputErrorLog } from '@/utils/errorLog'
 import { Logger } from '@/plugins/logger'
 import validateNpmPackageName from 'validate-npm-package-name'
@@ -100,7 +99,11 @@ export class BuildService {
     const { buildFiles, copyFiles } = await this.getFiles(cachePath, pkgJson)
     try {
       await fs.remove(buildsPath) // force=true
-      await rollupBuild(buildFiles, buildsPath, cachePath, pkgJson)
+      await build({
+        buildFiles,
+        sourcePath: cachePath,
+        outputPath: buildsPath,
+      })
 
       await Promise.all(
         copyFiles.map((item) =>

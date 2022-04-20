@@ -4,11 +4,10 @@ import fg from 'fast-glob'
 import _ from 'lodash'
 import path from 'path'
 import fs from 'fs-extra'
-import { fileResolveByExtension } from '@/utils/fileResolver'
+import { fileResolveByExtension, fileReader } from './utils'
 import { parse as cjsParse } from 'cjs-esm-exports'
 import { init as esInit, parse as esParse } from 'es-module-lexer'
-import { fileReader } from '@/utils/file'
-import { FILE_EXCLUDES, FILE_EXTENSIONS, FILES_IGNORE } from '@/constants/index'
+import { FILE_EXCLUDES, FILE_EXTENSIONS, FILES_IGNORE } from './constants'
 import { recursionExportsValues } from './recursion'
 
 type Recordable = Record<string, any>
