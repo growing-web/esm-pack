@@ -50,7 +50,7 @@
     ]
   },
   "dependencies": {
-    "@growing-web/esm-pack-core": "workspace:*",
+    "@growing-web/esm-pack-core": "^0.2.1",
     "@hapi/joi": "17.1.1",
     "@nestjs/common": "^8.4.4",
     "@nestjs/config": "2.0.0",
