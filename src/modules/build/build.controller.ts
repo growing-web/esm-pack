@@ -9,7 +9,7 @@ export class BuildController {
   /**
    * build the specified package
    * @param param packageName@packageVersion
-   * @example /rebuild/vue@3.0.0
+   * @example vue@3.0.0
    * @param res ok
    */
   @Get('/build/*')

@@ -15,15 +15,17 @@ import { readPackageJSON } from 'pkg-types'
 import peerDepsExternal from 'rollup-plugin-peer-deps-external'
 
 export * from './resolvePackage'
-
+process.setMaxListeners(0)
 export async function build({
   buildFiles,
   outputPath,
   sourcePath,
+  sourcemap = true,
 }: {
   buildFiles: string[]
   outputPath: string
   sourcePath: string
+  sourcemap?: boolean
 }) {
   const inputMap: Record<string, string> = {}
   const pkg = await readPackageJSON(sourcePath)
@@ -62,6 +64,7 @@ export async function build({
       sourcePath,
       env: 'production',
       name: pkg.name,
+      sourcemap,
     }),
     Promise.all(
       devBuildFiles.map((input) =>
@@ -71,24 +74,27 @@ export async function build({
           sourcePath,
           env: 'development',
           name: pkg.name,
+          sourcemap,
         }),
       ),
     ),
   ])
 }
 
-async function doBuildMultipleEntry({
+export async function doBuildMultipleEntry({
   input,
   sourcePath,
   outputPath,
   env,
   name,
+  sourcemap,
 }: {
   input: Record<string, string>
   outputPath: string
   sourcePath: string
   env: string
   name?: string
+  sourcemap: boolean
 }) {
   const inputKeys = Object.keys(input)
   const bundle = await rollup({
@@ -106,7 +112,8 @@ async function doBuildMultipleEntry({
     dir: outputPath,
     format: 'esm',
     exports: 'named',
-    sourcemap: true,
+    sourcemap,
+    // preserveModules: true,
     entryFileNames: (chunk) => {
       let id = chunk.facadeModuleId
 
@@ -148,18 +155,22 @@ async function doBuildMultipleEntry({
   )
 }
 
-async function doBuildSingleEntry({
+export async function doBuildSingleEntry({
   input,
   sourcePath,
   outputPath,
   env,
   name,
+  sourcemap,
+  devPrefix = 'dev.',
 }: {
   input: string
   outputPath: string
   sourcePath: string
   env: string
   name?: string
+  sourcemap: boolean
+  devPrefix?: string
 }) {
   try {
     const bundle = await rollup({
@@ -179,13 +190,13 @@ async function doBuildSingleEntry({
     }
 
     if (env === 'development') {
-      file = file.replace(basename, `dev.${basename}`)
+      file = file.replace(basename, `${devPrefix}${basename}`)
     }
 
     await bundle.write({
       file,
       exports: 'named',
-      sourcemap: true,
+      sourcemap,
     })
   } catch (error: any) {
     throw new Error(error)
