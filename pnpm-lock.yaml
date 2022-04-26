@@ -6,7 +6,7 @@ importers:
       '@changesets/cli': ^2.22.0
       '@commitlint/cli': ^16.2.3
       '@commitlint/config-conventional': ^16.2.1
-      '@growing-web/esm-pack-core': ^0.2.1
+      '@growing-web/esm-pack-core': ^0.2.2
       '@hapi/joi': 17.1.1
       '@nestjs/cli': ^8.2.5
       '@nestjs/common': ^8.4.4
@@ -92,7 +92,7 @@ importers:
       winston: 3.7.2
       winston-daily-rotate-file: 4.6.1
     dependencies:
-      '@growing-web/esm-pack-core': link:packages/build-core
+      '@growing-web/esm-pack-core': 0.2.2_esbuild@0.14.36
       '@hapi/joi': 17.1.1
       '@nestjs/common': 8.4.4_961bd9d9dd3e4079524985b87dc92953
       '@nestjs/config': 2.0.0_7670df531e7a1503cdbe395599f41db7
@@ -1142,6 +1142,35 @@ packages:
       {
         integrity: sha512-k2Ty1JcVojjJFwrg/ThKi2ujJ7XNLYaFGNB/bWT9wGR+oSMJHMa5w+CUq6p/pVrKeNNgA7pCqEcjSnHVoqJQFw==,
       }
+    dev: false
+
+  /@growing-web/esm-pack-core/0.2.2_esbuild@0.14.36:
+    resolution:
+      {
+        integrity: sha512-hF0B7KZHVpfmWJ7O9rrcF0aE4pEOFhIpi9GfKBsCis1qi2NaYLUwpWQ95un6/6xepMzVIcxuprt9IpeiAixa5g==,
+      }
+    dependencies:
+      '@rollup/plugin-commonjs': 21.1.0_rollup@2.70.2
+      '@rollup/plugin-inject': 4.0.4_rollup@2.70.2
+      '@rollup/plugin-json': 4.1.0_rollup@2.70.2
+      '@rollup/plugin-node-resolve': 13.2.1_rollup@2.70.2
+      cjs-esm-exports: 0.6.1
+      cjs-module-lexer: 1.2.2
+      es-module-lexer: 0.10.5
+      execa: 5.1.1
+      fast-glob: 3.2.11
+      fs-extra: 10.1.0
+      is-valid-identifier: 2.0.2
+      lodash: 4.17.21
+      pathe: 0.2.0
+      pkg-types: 0.3.2
+      rollup: 2.70.2
+      rollup-plugin-esbuild: 4.9.1_esbuild@0.14.36+rollup@2.70.2
+      rollup-plugin-node-polyfills: 0.2.1
+      rollup-plugin-peer-deps-external: 2.2.4_rollup@2.70.2
+    transitivePeerDependencies:
+      - esbuild
+      - supports-color
     dev: false
 
   /@hapi/address/4.1.0:
