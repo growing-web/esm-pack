@@ -1,11 +1,11 @@
 {
-  "name": "@growing-web/esm-pack",
+  "name": "@growing-web/esmpack",
   "version": "0.1.0",
   "description": "esm pack.",
   "keywords": [
     "growing-web",
     "cdn",
-    "esm-pack"
+    "esmpack"
   ],
   "homepage": "https://github.com/growing-web/esm-pack#readme",
   "bugs": {

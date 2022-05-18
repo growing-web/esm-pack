@@ -32,7 +32,7 @@ export class NpmController {
     const { packageVersion } = parsed
 
     if (!packageVersion || !fullVersionReg.test(packageVersion)) {
-      const ret = await this.npmService.maxSatisfyingVersion(param['0'])
+      const ret = await this.npmService.maxSatisfyingVersion(pathname)
       res
         .status(200)
         .set({
@@ -42,7 +42,7 @@ export class NpmController {
         .send(ret)
     } else {
       const { entry, filename, packageName } =
-        await this.esmService.resolveEsmFile(param['0'])
+        await this.esmService.resolveEsmFile(pathname)
       if (!entry) {
         return res
           .status(404)
@@ -66,7 +66,7 @@ export class NpmController {
             'Cache-Control':
               path.basename(entry.path) === '_error.log'
                 ? 'no-store'
-                : 'public, max-age=31536000', // 1 year
+                : 'public, max-age=31536000, s-maxage=31536000', // 1 year
             'Last-Modified': entry.lastModified,
             ETag: etag(entry.content),
             'Cache-Tag': tags.join(', '),

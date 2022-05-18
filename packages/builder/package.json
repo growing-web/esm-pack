@@ -1,5 +1,5 @@
 {
-  "name": "@growing-web/esm-pack-core",
+  "name": "@growing-web/esmpack-builder",
   "version": "0.2.3",
   "description": "esm pack build core.",
   "main": "./dist/index.cjs",
@@ -8,7 +8,7 @@
   "keywords": [
     "growing-web",
     "cdn",
-    "esm-pack",
+    "esmpack",
     "core"
   ],
   "license": "UNLICENSED",

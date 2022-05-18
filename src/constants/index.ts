@@ -5,7 +5,7 @@ const cacheDir = 'cache'
 
 export const APP_VERSION = 1
 
-export const APP_NAME = 'esm-pack'
+export const APP_NAME = 'esmpack'
 
 export const ETC_DIR = path.join(process.cwd(), etcDir)
 

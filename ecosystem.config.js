@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'esm-pack',
+      name: 'esmpack',
       cwd: './',
       script: 'dist/main.js',
       watch: false,

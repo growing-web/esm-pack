@@ -1,4 +1,4 @@
-export const APP_NAME = 'esm-pack'
+export const APP_NAME = 'esmpack'
 
 export const EXTENSIONS = [
   '.ts',
