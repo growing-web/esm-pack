@@ -13,7 +13,6 @@
   "plugins": ["node", "import", "@typescript-eslint"],
   "extends": [
     "eslint:recommended",
-    "standard",
     "plugin:node/recommended",
     "plugin:@typescript-eslint/recommended",
     "prettier",
@@ -25,6 +24,14 @@
     "no-useless-catch": "off",
     "no-use-before-define": "off",
     "space-before-function-paren": "off",
+
+    "node/no-unsupported-features/node-builtins": [
+      "error",
+      {
+        "version": ">=16.0.0",
+        "ignores": []
+      }
+    ],
 
     "@typescript-eslint/ban-ts-ignore": "off",
     "@typescript-eslint/explicit-function-return-type": "off",

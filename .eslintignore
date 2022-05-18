@@ -3,3 +3,5 @@
 .esmd
 .logs
 logs
+**/dist/**
+**/node_moduels/**

@@ -1,4 +1,4 @@
-lockfileVersion: 5.3
+lockfileVersion: 5.4
 
 specifiers:
   '@rollup/plugin-commonjs': ^21.1.0
@@ -1819,7 +1819,7 @@ packages:
       glob: 7.2.0
     dev: true
 
-  /rollup-plugin-dts/4.2.1_rollup@2.70.2+typescript@4.6.3:
+  /rollup-plugin-dts/4.2.1_nmerszcjz2rfjina4mudxa4qka:
     resolution:
       {
         integrity: sha512-eaxQZNUJ5iQcxNGlpJ1CUgG4OSVqWjDZ3nNSWBIoGrpcote2aNphSe1RJOaSYkb8dwn3o+rYm1vvld/5z3EGSQ==,
@@ -1836,7 +1836,7 @@ packages:
       '@babel/code-frame': 7.16.7
     dev: true
 
-  /rollup-plugin-esbuild/4.9.1_esbuild@0.14.38+rollup@2.70.2:
+  /rollup-plugin-esbuild/4.9.1_lvxamjn6a33tydoo6v5oeb34bu:
     resolution:
       {
         integrity: sha512-qn/x7Wz9p3Xnva99qcb+nopH0d2VJwVnsxJTGEg+Sh2Z3tqQl33MhOwzekVo1YTKgv+yAmosjcBRJygMfGrtLw==,
@@ -2079,8 +2079,8 @@ packages:
       pretty-bytes: 6.0.0
       rimraf: 3.0.2
       rollup: 2.70.2
-      rollup-plugin-dts: 4.2.1_rollup@2.70.2+typescript@4.6.3
-      rollup-plugin-esbuild: 4.9.1_esbuild@0.14.38+rollup@2.70.2
+      rollup-plugin-dts: 4.2.1_nmerszcjz2rfjina4mudxa4qka
+      rollup-plugin-esbuild: 4.9.1_lvxamjn6a33tydoo6v5oeb34bu
       scule: 0.2.1
       typescript: 4.6.3
       untyped: 0.4.4

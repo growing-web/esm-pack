@@ -63,6 +63,8 @@ export class AppExceptionFilter implements ExceptionFilter {
     }
 
     if (!isMatch) {
+      console.log(111, exception.message)
+
       response
         .status(HttpStatus.INTERNAL_SERVER_ERROR)
         .type('text')

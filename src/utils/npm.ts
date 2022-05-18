@@ -1,6 +1,6 @@
 import fetch from 'npm-registry-fetch'
 import fs from 'fs-extra'
-import path from 'pathe'
+import path from 'path'
 import tar from 'tar'
 import { URL } from 'url'
 import https, { RequestOptions } from 'https'
@@ -14,7 +14,7 @@ const FALLBACK_NPM_REGISTRY_URL = process.env.FALLBACK_NPM_REGISTRY_URL
 
 const oneMegabyte = 1024 * 1024
 const oneSecond = 1000
-const oneMinute = oneSecond * 60
+const oneMinute = (oneSecond * 60) as any
 
 const notFound = ''
 
@@ -214,8 +214,8 @@ async function fetchPackageConfig(packageName: string, version: string) {
  * Uses a cache to avoid over-fetching from the registry.
  */
 export async function getPackageConfig(packageName: string, version: string) {
-  const cacheKey = `config-${packageName}-${version}`
-  const cacheValue = cache.get(cacheKey)
+  const cacheKey = `config-${packageName}-${version}` as any
+  const cacheValue = cache.get(cacheKey) as any
 
   if (cacheValue != null) {
     return cacheValue === notFound ? null : JSON.parse(cacheValue)
@@ -224,7 +224,7 @@ export async function getPackageConfig(packageName: string, version: string) {
   const value = await fetchPackageConfig(packageName, version)
 
   if (value == null) {
-    cache.set(cacheKey, notFound, 5 * oneMinute)
+    cache.set(cacheKey, notFound, (5 * oneMinute) as any)
     return null
   }
 
@@ -256,8 +256,8 @@ export async function getTarballURL(packageName: string, version: string) {
 }
 
 export async function getVersionsAndTags(packageName: string) {
-  const cacheKey = `versions-${packageName}`
-  const cacheValue = cache.get(cacheKey)
+  const cacheKey = `versions-${packageName}` as any
+  const cacheValue = cache.get(cacheKey) as any
 
   if (cacheValue !== null && cacheValue !== undefined) {
     return cacheValue === notFound ? null : JSON.parse(cacheValue)
@@ -266,7 +266,7 @@ export async function getVersionsAndTags(packageName: string) {
   const value = await fetchVersionsAndTags(packageName)
 
   if (value === null) {
-    cache.set(cacheKey, notFound, 5 * oneMinute)
+    cache.set(cacheKey, notFound, (5 * oneMinute) as any)
     return null
   }
 

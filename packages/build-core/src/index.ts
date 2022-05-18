@@ -3,7 +3,7 @@ import commonjs from '@rollup/plugin-commonjs'
 import resolve from '@rollup/plugin-node-resolve'
 import esbuild from 'rollup-plugin-esbuild'
 import rollupJSONPlugin from '@rollup/plugin-json'
-import path from 'pathe'
+import path from 'path'
 import fs from 'fs-extra'
 import { rollup } from 'rollup'
 import _ from 'lodash'
@@ -224,7 +224,6 @@ function createRollupPlugins(name: string | undefined, env: string) {
     }),
     rollupPluginWrapTargets(false, name),
     esbuild({
-      target: 'es2022',
       minify: true,
       define: {
         'process.env.NODE_ENV': JSON.stringify(env),

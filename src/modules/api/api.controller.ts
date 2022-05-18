@@ -1,10 +1,10 @@
-// import { Controller, Get } from '@nestjs/common'
-import { ApiService } from './api.service'
+import { Controller, Get } from '@nestjs/common'
+// import { ApiService } from './api.service'
 
-// @Controller('api')
+@Controller()
 export class ApiController {
-  constructor(private readonly apiService: ApiService) {}
-
-  //   @Get('/cleanCache')
-  async resolveEsmFile() {}
+  @Get('/health')
+  async heart() {
+    return 'health'
+  }
 }

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import path from 'pathe'
+import path from 'path'
 import fs from 'fs-extra'
 import {
   validatePackagePathname,

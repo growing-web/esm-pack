@@ -65,13 +65,14 @@ export async function resolveImports(pkg: Recordable) {
 }
 
 export async function resolveExports(pkg: PackageJson, root: string) {
-  let {
-    exports: pkgExports,
+  const {
     module: pkgModule,
     main: pkgMain,
     browser: pkgBrowser,
     files: pkgFiles = [],
   } = pkg as any
+
+  let { exports: pkgExports } = pkg as any
   const cjsMainFiles: string[] = []
 
   const unStandard = !pkgExports && !pkgMain && !pkgModule
