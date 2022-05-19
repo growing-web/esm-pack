@@ -11,7 +11,7 @@ import {
   Error404Exception,
 } from '@/common/exception/errorStateException'
 import { CACHE_DIR, ETC_DIR, BUILDS_DIR, PACKAGE_JSON } from '@/constants'
-import { build, resolvePackage } from '@growing-web/esm-pack-core'
+import { build, resolvePackage } from '@growing-web/esmpack-builder'
 import { outputErrorLog } from '@/utils/errorLog'
 import { Logger } from '@/plugins/logger'
 import validateNpmPackageName from 'validate-npm-package-name'

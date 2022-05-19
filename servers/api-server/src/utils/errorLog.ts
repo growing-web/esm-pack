@@ -1,7 +1,8 @@
 import path from 'path'
 import fs from 'fs-extra'
-import { BUILDS_DIR } from '../constants'
 import stackTrace from 'stacktrace-js'
+import { BUILDS_DIR } from '../constants'
+
 export function outputErrorLog(
   err: any,
   packageName: string,

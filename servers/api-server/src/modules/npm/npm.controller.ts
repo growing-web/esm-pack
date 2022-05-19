@@ -1,6 +1,6 @@
-import { Controller, Get, Param, Res } from '@nestjs/common'
+import { Controller, Get, Param, Res, Req } from '@nestjs/common'
 import { NpmService } from './npm.service'
-import type { Response } from 'express'
+import type { Response, Request } from 'express'
 import { Error403Exception } from '@/common/exception'
 import { parsePackagePathname } from '@/utils/parsePackagePathname'
 import { EsmService } from '@/modules/esm/esm.service'
@@ -16,7 +16,11 @@ export class NpmController {
   ) {}
 
   @Get('npm:*')
-  async maxSatisfying(@Param() param, @Res() res: Response) {
+  async maxSatisfying(
+    @Param() param,
+    @Res() res: Response,
+    @Req() req: Request,
+  ) {
     const pathname = param['0']
     if (!pathname) {
       throw new Error403Exception(`Invalid URL: ${pathname}`)
@@ -42,7 +46,8 @@ export class NpmController {
         .send(ret)
     } else {
       const { entry, filename, packageName } =
-        await this.esmService.resolveEsmFile(pathname)
+        await this.esmService.resolveFile(req, pathname)
+
       if (!entry) {
         return res
           .status(404)
@@ -71,6 +76,8 @@ export class NpmController {
             ETag: etag(entry.content),
             'Cache-Tag': tags.join(', '),
             'Cross-Origin-Resource-Policy': 'cross-origin',
+            'Content-Encoding': entry['Content-Encoding'],
+            type: entry.type,
           })
           .send(entry.content)
       }

@@ -1,0 +1,27 @@
+{
+  "name": "@growing-web/esmpack-utils",
+  "version": "0.1.0",
+  "description": "esmpack utils.",
+  "keywords": [
+    "growing-web",
+    "cdn",
+    "esmpack",
+    "utils"
+  ],
+  "license": "MIT",
+  "author": "vben",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "pnpm unbuild",
+    "clean": "pnpm rimraf node_modules && pnpm rimraf dist",
+    "dev": "pnpm unbuild --stub",
+    "prepublishOnly": "npm run build",
+    "stub": "npm run dev"
+  },
+  "dependencies": {}
+}

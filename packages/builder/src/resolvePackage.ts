@@ -1,14 +1,15 @@
 import type { PackageJson } from 'pkg-types'
 import { readPackageJSON } from 'pkg-types'
-import fg from 'fast-glob'
-import _ from 'lodash'
-import path from 'path'
-import fs from 'fs-extra'
 import { fileResolveByExtension, fileReader } from './utils'
 import { parse as cjsParse } from 'cjs-esm-exports'
 import { init as esInit, parse as esParse } from 'es-module-lexer'
 import { FILE_EXCLUDES, FILE_EXTENSIONS, FILES_IGNORE } from './constants'
 import { recursionExportsValues } from './recursion'
+import fg from 'fast-glob'
+import _ from 'lodash'
+import path from 'path'
+import fs from 'fs-extra'
+import { enableSourceMap } from './config'
 
 type Recordable = Record<string, any>
 
@@ -97,10 +98,14 @@ export async function resolveExports(pkg: PackageJson, root: string) {
 
     for (const [key, pattern] of Object.entries(pkgExports)) {
       if (
-        (key.includes('*') && _.isString(pattern) && pattern.includes('*')) ||
-        (key.endsWith('/') && _.isString(pattern) && pattern.endsWith('/'))
+        (key.includes('*') &&
+          _.isString(pattern) &&
+          (pattern as string).includes('*')) ||
+        (key.endsWith('/') &&
+          _.isString(pattern) &&
+          (pattern as string).endsWith('/'))
       ) {
-        await addMatchFileToExports(pattern, pkgExports, root)
+        await addMatchFileToExports(pattern as string, pkgExports, root)
         continue
       }
       if (_.isObject(pattern)) {
@@ -211,11 +216,13 @@ export async function resolveFiles(
   )
 
   // Add .map to js file
-  files.forEach((item) => {
-    if (/\.[m|c]?js$/.test(item) && !item.includes('*')) {
-      files.push(`${item}.map`)
-    }
-  })
+  if (enableSourceMap) {
+    files.forEach((item) => {
+      if (/\.[m|c]?js$/.test(item) && !item.includes('*')) {
+        files.push(`${item}.map`)
+      }
+    })
+  }
 
   // add license and readme.md to files
   const matchFiles = await fg(['license', 'readme.md', 'changelog.md'], {
@@ -397,7 +404,7 @@ async function handleObjectPattern({
           continue
         }
         if (_.isString(iv)) {
-          pkgExports[key][pkey][ik] = await resolveMain(root, iv)
+          pkgExports[key][pkey][ik] = await resolveMain(root, iv as string)
         }
       }
     }

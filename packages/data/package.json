@@ -1,0 +1,26 @@
+{
+  "name": "@growing-web/esmpack-data",
+  "version": "0.1.0",
+  "description": "esmpack data api.",
+  "keywords": [
+    "growing-web",
+    "cdn",
+    "esmpack",
+    "data"
+  ],
+  "license": "MIT",
+  "author": "vben",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "pnpm unbuild",
+    "clean": "pnpm rimraf node_modules && pnpm rimraf dist",
+    "dev": "pnpm unbuild --stub",
+    "prepublishOnly": "npm run build",
+    "stub": "npm run dev"
+  }
+}

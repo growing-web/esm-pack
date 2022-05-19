@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common'
+import type { Request } from 'express'
 import path from 'path'
 import fs from 'fs-extra'
 import {
@@ -18,7 +19,7 @@ export class EsmService {
   constructor() {}
 
   // ${name}@${version}
-  async resolveEsmFile(pathname?: string) {
+  async resolveFile(req: Request, pathname?: string) {
     const { packageName, packageVersion, filename } =
       await validatePackagePathname(pathname)
 
@@ -28,7 +29,12 @@ export class EsmService {
 
     await validateNpmPackageName(packageName)
 
-    const entry = await this.findEntry(packageName, packageVersion, filename)
+    const entry = await this.findEntry(
+      req,
+      packageName,
+      packageVersion,
+      filename,
+    )
 
     return {
       packageName,
@@ -39,17 +45,34 @@ export class EsmService {
   }
 
   private async findEntry(
+    req: Request,
     packageName: string,
     packageVersion: string,
     filename: string,
   ) {
+    const acceptEncoding = req.header('Accept-Encoding')
+
+    let _filename = filename
+    const isBr = acceptEncoding?.includes('br')
+    if (isBr) {
+      _filename += '.br'
+    }
+
+    const brFilePath = path.join(
+      BUILDS_DIR,
+      `${packageName}@${packageVersion}`,
+      _filename,
+    )
+
     const filePath = path.join(
       BUILDS_DIR,
       `${packageName}@${packageVersion}`,
       filename,
     )
 
+    const exitsBrFile = fileResolveByExtension(brFilePath)
     let exitsFile = fileResolveByExtension(filePath)
+    exitsFile = exitsBrFile || exitsFile
 
     if (!exitsFile) {
       throw new Error404Exception('Not Found.')
@@ -75,6 +98,10 @@ export class EsmService {
         integrity: getIntegrity(content),
         lastModified: mtime.toUTCString(),
         size: size,
+        ...(isBr ? { 'Content-Encoding': 'br' } : {}),
+        type: isBr
+          ? path.extname(path.basename(readerStream.path, '.br'))
+          : path.extname(readerStream.path),
       }
       return entry
     } catch (error) {

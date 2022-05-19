@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: 'esmpack',
+      name: 'esmpack-api-server',
       cwd: './',
       script: 'dist/main.js',
       watch: false,
@@ -14,7 +14,6 @@ module.exports = {
       node_args: '--harmony',
       instances: 4,
       ignore_watch: ['node_modules', 'logs', 'static'],
-      //   exec_mode: 'cluster',
       max_memory_restart: '2G',
       env: {
         NODE_ENV: 'production',

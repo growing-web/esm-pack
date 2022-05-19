@@ -1,23 +1,27 @@
 {
   "name": "@growing-web/esmpack-builder",
-  "version": "0.2.3",
+  "version": "0.1.0",
   "description": "esm pack build core.",
-  "main": "./dist/index.cjs",
-  "module": "./dist/index.mjs",
-  "types": "./dist/index.d.ts",
   "keywords": [
     "growing-web",
     "cdn",
     "esmpack",
     "core"
   ],
-  "license": "UNLICENSED",
+  "license": "MIT",
   "author": "vben",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "pnpm unbuild",
-    "dev": "pnpm unbuild --stub",
     "clean": "pnpm rimraf node_modules && pnpm rimraf dist",
-    "prepublishOnly": "npm run build"
+    "dev": "pnpm unbuild --stub",
+    "prepublishOnly": "npm run build",
+    "stub": "npm run dev"
   },
   "dependencies": {
     "@rollup/plugin-commonjs": "^22.0.0",
@@ -27,19 +31,21 @@
     "cjs-esm-exports": "^0.6.1",
     "cjs-module-lexer": "^1.2.2",
     "es-module-lexer": "^0.10.5",
+    "esbuild": "^0.14.39",
     "execa": "6.1.0",
     "fast-glob": "3.2.11",
     "fs-extra": "^10.1.0",
+    "glob": "^8.0.3",
     "is-valid-identifier": "^2.0.2",
     "lodash": "4.17.21",
     "pkg-types": "^0.3.2",
+    "resolve": "^1.22.0",
     "rollup": "^2.73.0",
     "rollup-plugin-esbuild": "^4.9.1",
     "rollup-plugin-node-polyfills": "^0.2.1",
     "rollup-plugin-peer-deps-external": "^2.2.4"
   },
   "devDependencies": {
-    "rimraf": "^3.0.2",
-    "unbuild": "^0.7.4"
+    "@types/resolve": "^1.20.2"
   }
 }

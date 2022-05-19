@@ -5,7 +5,7 @@ import {
   NestExpressApplication,
 } from '@nestjs/platform-express'
 import helmet from 'helmet'
-import compression from 'compression'
+// import compression from 'compression'
 import { ConfigService } from './config/config.service'
 import { Logger } from './plugins'
 import { isDev } from './utils/env'
@@ -34,7 +34,7 @@ async function bootstrap() {
   })
 
   app.use(helmet())
-  app.use(compression())
+  //   app.use(compression())
 
   const configService = app.get(ConfigService)
   const { appPort, apiPrefix } = configService

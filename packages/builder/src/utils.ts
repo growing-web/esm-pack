@@ -13,6 +13,7 @@ export function fileResolveByExtension(pathname: string) {
   }
   return null
 }
+
 export function fileReader(path: string) {
   return fs.readFileSync(path, {
     encoding: 'utf-8',

@@ -5,13 +5,15 @@ import esbuild from 'rollup-plugin-esbuild'
 import rollupJSONPlugin from '@rollup/plugin-json'
 import path from 'path'
 import fs from 'fs-extra'
-import { rollup } from 'rollup'
 import _ from 'lodash'
 import { APP_NAME } from './constants'
-import { rollupPluginWrapTargets } from './plugins/rollup-plugin-wrap-exports'
-import { rollupPluginNodeProcessPolyfill } from './plugins/rollup-plugin-node-process-polyfill'
+import { rollup } from 'rollup'
+import { rollupPluginWrapTargets } from './plugins/rollupPluginWrapExports'
+import { rollupPluginNodeProcessPolyfill } from './plugins/rollupPluginNodeProcessPolyfill'
 import { isDynamicEntry } from './resolvePackage'
 import { readPackageJSON } from 'pkg-types'
+import { brotliPlugin, brotli } from './brotlify'
+import { enableSourceMap } from './config'
 import peerDepsExternal from 'rollup-plugin-peer-deps-external'
 
 export * from './resolvePackage'
@@ -20,7 +22,7 @@ export async function build({
   buildFiles,
   outputPath,
   sourcePath,
-  sourcemap = true,
+  sourcemap = enableSourceMap,
 }: {
   buildFiles: string[]
   outputPath: string
@@ -103,7 +105,7 @@ export async function doBuildMultipleEntry({
     onwarn: onWarning,
     external: (id) =>
       !inputKeys.includes(path.join(sourcePath, id)) && !needExternal(id),
-    plugins: createRollupPlugins(name, env),
+    plugins: [...createRollupPlugins(name, env)],
   })
 
   fs.ensureDirSync(outputPath)
@@ -116,6 +118,7 @@ export async function doBuildMultipleEntry({
     // preserveModules: true,
     entryFileNames: (chunk) => {
       let id = chunk.facadeModuleId
+      id = id?.replace(/(\?commonjs-entry)$/, '') ?? id
 
       if (id?.startsWith(`${APP_NAME}:`)) {
         id = id.replace(`${APP_NAME}:`, '')
@@ -130,8 +133,10 @@ export async function doBuildMultipleEntry({
     chunkFileNames: '[hash].js',
   })
 
+  const chunks: any[] = []
   await Promise.all(
     output.map((chunk) => {
+      const promises: any[] = []
       if (chunk.type === 'chunk') {
         const map = chunk.map?.toString()
         const encoding = {
@@ -140,19 +145,42 @@ export async function doBuildMultipleEntry({
 
         const filename = chunk.fileName
 
-        return Promise.all([
-          fs.outputFile(path.join(outputPath, filename), chunk.code, encoding),
-          map &&
+        promises.push(
+          ...[
             fs.outputFile(
-              path.join(outputPath, `${filename}.map`),
-              map,
+              path.join(outputPath, filename),
+              chunk.code,
               encoding,
             ),
-        ])
+            enableSourceMap &&
+              map &&
+              fs.outputFile(
+                path.join(outputPath, `${filename}.map`),
+                map,
+                encoding,
+              ),
+          ],
+        )
       }
-      return () => {}
+      chunks.push({ [chunk.fileName]: chunk })
+
+      if (enableSourceMap) {
+        const map = (chunk as any).map?.toString()
+        if (map) {
+          chunks.push({
+            [`${chunk.fileName}.map`]: {
+              ...chunk,
+              fileName: `${chunk.fileName}.map`,
+            },
+          })
+        }
+      }
+
+      return Promise.all(promises)
     }),
   )
+
+  await Promise.all(chunks.map((chunk) => brotli(chunk, outputPath)))
 }
 
 export async function doBuildSingleEntry({
@@ -178,7 +206,7 @@ export async function doBuildSingleEntry({
       treeshake: { moduleSideEffects: true },
       onwarn: onWarning,
       external: (id) => path.join(id) !== path.join(input) && !needExternal(id),
-      plugins: createRollupPlugins(name, env),
+      plugins: [...createRollupPlugins(name, env), brotliPlugin()],
     })
 
     fs.ensureDirSync(outputPath)
@@ -196,7 +224,7 @@ export async function doBuildSingleEntry({
     await bundle.write({
       file,
       exports: 'named',
-      sourcemap,
+      sourcemap: sourcemap === true || enableSourceMap,
     })
   } catch (error: any) {
     throw new Error(error)
@@ -213,7 +241,7 @@ function createRollupPlugins(name: string | undefined, env: string) {
     }),
     rollupJSONPlugin({
       preferConst: true,
-      indent: '  ',
+      indent: '',
       compact: false,
       namedExports: true,
     }),

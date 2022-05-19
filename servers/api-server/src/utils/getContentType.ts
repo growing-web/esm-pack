@@ -14,7 +14,6 @@ mime.define(
       'flow',
     ],
   },
-  // @ts-ignore
   true,
 )
 
