@@ -55,12 +55,8 @@
     "commit-msg": "node scripts/verifyCommit.js"
   },
   "lint-staged": {
-    "*.js": [
-      "prettier --write"
-    ],
-    "*.ts?(x)": [
-      "prettier --parser=typescript --write"
-    ]
+    "*.js": ["prettier --write"],
+    "*.ts?(x)": ["prettier --parser=typescript --write"]
   },
   "peerDependencies": {
     "vue": "^3.2.0"
@@ -116,6 +112,5 @@
     "vue": "^3.2.31",
     "vue-tsc": "^0.32.0",
     "yorkie": "^2.0.0"
-  },
-  "__ESMD__": true
+  }
 }

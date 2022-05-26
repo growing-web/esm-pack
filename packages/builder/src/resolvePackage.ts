@@ -6,9 +6,9 @@ import { init as esInit, parse as esParse } from 'es-module-lexer'
 import { FILE_EXCLUDES, FILE_EXTENSIONS, FILES_IGNORE } from './constants'
 import { recursionExportsValues } from './recursion'
 import fg from 'fast-glob'
-import _ from 'lodash'
 import path from 'path'
 import fs from 'fs-extra'
+import _ from 'lodash'
 import { enableSourceMap } from './config'
 
 type Recordable = Record<string, any>
@@ -22,7 +22,8 @@ const JS_RE = /\.[m]?js$/
 export async function resolvePackage(cachePath: string) {
   const pkg = await readPackageJSON(cachePath)
   // @ts-ignore
-  if (pkg.__ESMD__ === true) {
+
+  if (pkg?.files?.includes('package.json.js')) {
     return pkg
   }
 
@@ -35,8 +36,6 @@ export async function resolvePackage(cachePath: string) {
   // pkg.imports
   Object.assign(pkg, await resolveImports(pkg))
 
-  // @ts-ignore
-  pkg.__ESMD__ = true
   return pkg
 }
 

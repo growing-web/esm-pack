@@ -1,0 +1,35 @@
+{
+  "name": "@growing-web/esmpack-adapter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "esmpack adapter.",
+  "keywords": [
+    "growing-web",
+    "cdn",
+    "esmpack",
+    "adapter"
+  ],
+  "license": "MIT",
+  "author": "vben",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "pnpm unbuild",
+    "clean": "pnpm rimraf node_modules && pnpm rimraf dist",
+    "dev": "pnpm unbuild --stub",
+    "prepublishOnly": "npm run build",
+    "stub": "npm run dev"
+  },
+  "dependencies": {
+    "ali-oss": "^6.17.1",
+    "fast-glob": "3.2.11",
+    "stacktrace-js": "^2.0.2"
+  },
+  "devDependencies": {
+    "@types/ali-oss": "^6.16.3"
+  }
+}

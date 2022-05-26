@@ -2,22 +2,27 @@ import { Injectable } from '@nestjs/common'
 import { extractTarball, getTarballURL } from '@/utils/npm'
 import { PackageJson, writePackageJSON } from 'pkg-types'
 import {
+  SOURCE_DIR,
+  ESM_DIR,
+  OUTPUT_DIR,
+  PACKAGE_JSON,
+  BUCKET_NPM_DIR,
+} from '@/constants'
+import { build, resolvePackage } from '@growing-web/esmpack-builder'
+import { originAdapter } from '@/originAdapter'
+import { validateNpmPackageName } from '@/utils/validate'
+import fs from 'fs-extra'
+import path from 'path'
+import AsyncLock from 'async-lock'
+import {
   validatePackagePathname,
   validatePackageConfig,
 } from '@/utils/validate'
 import {
-  Error403Exception,
-  Error500Exception,
-  Error404Exception,
+  ForbiddenException,
+  InternalServerErrorException,
+  NotFoundException,
 } from '@/common/exception/errorStateException'
-import { CACHE_DIR, ETC_DIR, BUILDS_DIR, PACKAGE_JSON } from '@/constants'
-import { build, resolvePackage } from '@growing-web/esmpack-builder'
-import { outputErrorLog } from '@/utils/errorLog'
-import { Logger } from '@/plugins/logger'
-import validateNpmPackageName from 'validate-npm-package-name'
-import fs from 'fs-extra'
-import path from 'path'
-import AsyncLock from 'async-lock'
 
 const lock = new AsyncLock()
 
@@ -25,153 +30,171 @@ const lock = new AsyncLock()
 export class BuildService {
   constructor() {}
 
-  async build(pathname: string | undefined, force: boolean) {
-    fs.ensureDirSync(ETC_DIR)
+  async build(pathname: string | undefined) {
+    // 确保构建文件存在
+    fs.ensureDirSync(ESM_DIR)
+
     const { packageName, packageVersion } = await validatePackagePathname(
       pathname,
     )
+
+    /**
+     * Node.js 进程锁，防止同一个线程执行相同的包构建任务
+     */
+    const lockKey = `${packageName}@${packageVersion}`
     return lock
-      .acquire(
-        `${packageName}@${packageVersion}`,
-        this.doBuild.bind(this, packageName, packageVersion, force),
-      )
+      .acquire(lockKey, this.doBuild.bind(this, packageName, packageVersion))
       .catch((err) => {
-        Logger.error(err)
-        outputErrorLog(err, packageName, packageVersion)
+        // 记录错误信息到构建目录对应包下面的 _error.json 文件
+        // outputErrorLog(err, packageName, packageVersion)
         throw err
       })
   }
 
-  async doBuild(packageName: string, packageVersion: string, force = false) {
+  async doBuild(packageName: string, packageVersion: string) {
+    // 检测包名或者版本号是否存在
     if (!packageVersion || !packageName) {
-      throw new Error404Exception(
+      throw new NotFoundException(
         `Cannot find package ${packageName || ''}@${packageVersion || ''}`,
       )
     }
 
+    // 检测包名是否规范
     validateNpmPackageName(packageName)
 
-    const libDir = `${packageName}@${packageVersion}`
-    const buildsPath = this.getBuildsPath(libDir)
+    const uploadDir = this.getUploadDir(packageName, packageVersion)
 
-    const isBuilded = fs.existsSync(path.join(buildsPath, PACKAGE_JSON))
+    // 判断是否已经在OSS内存在，如已存在，则跳过
+    const isExistObject = await originAdapter.isExistObject(
+      path.join(uploadDir, PACKAGE_JSON),
+    )
 
-    // Download npm to local
-    const cachePath = this.getCachePath(packageName, packageVersion)
-
-    const isCached = fs.existsSync(cachePath)
-
-    if (isCached && isBuilded && !force) {
-      return
-    }
-
-    if (isBuilded && !force) {
-      throw new Error403Exception(
+    if (isExistObject) {
+      throw new ForbiddenException(
         `Package ${packageName}@${packageVersion} has already been built.`,
       )
     }
 
-    if (!isCached || force) {
-      isCached && (await fs.remove(cachePath)) // force=true
+    // 从npm下载文件到本地缓存文件夹
+    const sourcePath = this.getSourcePath(packageName, packageVersion)
+    if (!fs.existsSync(sourcePath)) {
       await validatePackageConfig(packageName, packageVersion)
       const tarballURL = await getTarballURL(packageName, packageVersion)
-      await extractTarball(cachePath, tarballURL)
+      await extractTarball(sourcePath, tarballURL)
     }
 
+    // 判断是否下载成功
     const downloadTarballSuccess = fs.existsSync(
-      this.getCachePath(packageName, packageVersion, PACKAGE_JSON),
+      this.getSourcePath(packageName, packageVersion, PACKAGE_JSON),
     )
 
     if (!downloadTarballSuccess) {
-      throw new Error404Exception(
+      throw new NotFoundException(
         `Cannot find package ${packageName}@${packageVersion}`,
       )
     }
 
-    // HACK There may be build issues dealing with node.js modules
+    const outputPath = path.join(OUTPUT_DIR, packageName, packageVersion)
+
+    // HACK 处理 Node.js 模块可能存在构建问题
     if (packageName === '@jspm/core') {
-      fs.copy(cachePath, buildsPath)
+      fs.copy(sourcePath, outputPath)
       return
     }
 
-    const pkgJson = await this.rewritePackage(cachePath)
-
-    const { buildFiles, copyFiles } = await this.getFiles(cachePath, pkgJson)
     try {
-      await fs.remove(buildsPath) // force=true
+      // 重写 package.json
+      const packageJson = await this.rewritePackage(sourcePath)
+
+      const { buildFiles, needCopyFiles } = await this.getFiles(
+        sourcePath,
+        packageJson,
+      )
+
+      // 清空可能存在的构建输出文件
+      await fs.remove(outputPath)
+
+      // 执行构建
       await build({
         buildFiles,
-        sourcePath: cachePath,
-        outputPath: buildsPath,
+        sourcePath,
+        outputPath,
       })
 
+      // 拷贝其余文件到构建输出目录
       await Promise.all(
-        copyFiles.map((item) =>
+        needCopyFiles.map((file) =>
           fs.copy(
-            path.resolve(cachePath, item),
-            path.resolve(buildsPath, item),
+            path.resolve(sourcePath, file),
+            path.resolve(outputPath, file),
           ),
         ),
       )
 
-      Reflect.deleteProperty(pkgJson, '__ESMD__')
-      await writePackageJSON(path.join(buildsPath, 'package.json'), pkgJson)
+      // upload oss
+      await originAdapter.upload({
+        cwd: outputPath,
+        uploadDir,
+      })
+      // 清空输出目录，防止构建累计，导致文件过多
+      await fs.remove(outputPath)
     } catch (error: any) {
-      throw new Error500Exception(error.toString())
+      throw new InternalServerErrorException(error.toString())
     }
   }
 
   private async rewritePackage(cachePath: string) {
     const pkg = await resolvePackage(cachePath)
-    await writePackageJSON(path.join(cachePath, 'package.json'), pkg)
+    await writePackageJSON(path.join(cachePath, PACKAGE_JSON), pkg)
     return pkg
   }
 
-  private getCachePath(name: string, version: string, ...args: string[]) {
-    return path.join(CACHE_DIR, name, version, ...args)
+  private getSourcePath(name: string, version: string, ...args: string[]) {
+    return path.join(SOURCE_DIR, name, version, ...args)
   }
 
-  private getBuildsPath(name: string) {
-    return path.join(BUILDS_DIR, name)
+  private getUploadDir(packageName: string, packageVersion: string) {
+    return `${BUCKET_NPM_DIR}/${packageName}@${packageVersion}/`
   }
 
   private async getFiles(cachePath: string, pkgJson: PackageJson) {
     const { files = [], browser = {} } = pkgJson
-    const copyFiles: string[] = []
+    const needCopyFiles: string[] = []
 
-    copyFiles.push('package.json')
+    needCopyFiles.push(PACKAGE_JSON)
 
     let buildFiles = files.filter((file) => {
       if (
         !fs.existsSync(path.join(cachePath, file)) ||
-        file === 'package.json.js'
+        file === `${PACKAGE_JSON}.js`
       ) {
         return false
       }
 
-      if (file === 'package.json' || /\.[m|c]?js$/.test(file)) {
+      if (file === PACKAGE_JSON || /\.[m|c]?js$/.test(file)) {
         return true
       }
 
-      if (file.endsWith('.ts')) {
-        copyFiles.push(file)
+      if (file.endsWith('.d.ts')) {
+        needCopyFiles.push(file)
         return false
       }
 
       if (!file.endsWith('.map')) {
-        copyFiles.push(file)
+        needCopyFiles.push(file)
       }
       return false
     })
+
     buildFiles = buildFiles.map((item) => path.resolve(cachePath, item))
 
-    for (const [key] of Object.entries(browser)) {
+    for (const key of Object.keys(browser)) {
       buildFiles = buildFiles.filter((item) => {
         const name = path.relative(cachePath, item)
         return path.join(name) !== path.join(key)
       })
     }
 
-    return { buildFiles, copyFiles }
+    return { buildFiles, needCopyFiles }
   }
 }

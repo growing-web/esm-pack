@@ -12,12 +12,12 @@ import { rollupPluginWrapTargets } from './plugins/rollupPluginWrapExports'
 import { rollupPluginNodeProcessPolyfill } from './plugins/rollupPluginNodeProcessPolyfill'
 import { isDynamicEntry } from './resolvePackage'
 import { readPackageJSON } from 'pkg-types'
-import { brotliPlugin, brotli } from './brotlify'
+import { rollupBrotliPlugin, brotli } from './brotlify'
 import { enableSourceMap } from './config'
 import peerDepsExternal from 'rollup-plugin-peer-deps-external'
 
 export * from './resolvePackage'
-process.setMaxListeners(0)
+
 export async function build({
   buildFiles,
   outputPath,
@@ -206,7 +206,7 @@ export async function doBuildSingleEntry({
       treeshake: { moduleSideEffects: true },
       onwarn: onWarning,
       external: (id) => path.join(id) !== path.join(input) && !needExternal(id),
-      plugins: [...createRollupPlugins(name, env), brotliPlugin()],
+      plugins: [...createRollupPlugins(name, env), rollupBrotliPlugin()],
     })
 
     fs.ensureDirSync(outputPath)

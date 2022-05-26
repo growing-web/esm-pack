@@ -78,9 +78,7 @@
     "type": "git",
     "url": "git+https://github.com/vuejs/core.git"
   },
-  "keywords": [
-    "vue"
-  ],
+  "keywords": ["vue"],
   "author": "Evan You",
   "license": "MIT",
   "bugs": {
@@ -93,6 +91,5 @@
     "@vue/runtime-dom": "3.2.31",
     "@vue/compiler-sfc": "3.2.31",
     "@vue/server-renderer": "3.2.31"
-  },
-  "__ESMD__": true
+  }
 }

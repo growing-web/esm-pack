@@ -1,16 +1,16 @@
+import path from 'node:path'
+import { URL } from 'node:url'
+import https, { RequestOptions } from 'node:https'
 import fetch from 'npm-registry-fetch'
 import fs from 'fs-extra'
-import path from 'path'
 import tar from 'tar'
-import { URL } from 'url'
-import https, { RequestOptions } from 'https'
 import request from 'request-promise'
 import progress from 'request-progress'
 import LRUCache from 'lru-cache'
 import { bufferStream } from './bufferStream'
+import { Logger } from '@/plugins/logger'
 
-const NPM_REGISTRY_URL = process.env.NPM_REGISTRY_URL
-const FALLBACK_NPM_REGISTRY_URL = process.env.FALLBACK_NPM_REGISTRY_URL
+const NPM_REGISTRY_URL = 'https://registry.npmmirror.com'
 
 const oneMegabyte = 1024 * 1024
 const oneSecond = 1000
@@ -58,8 +58,8 @@ function isScopedPackageName(packageName: string) {
  * @param  {String} version  pacage version
  * @return {array} [code, resute]
  */
-export async function getNpmPackageInfo(pkgName: string): Promise<any> {
-  const ret = await fetch.json(`${pkgName}`)
+export async function getNpmPackageInfo(packageName: string): Promise<any> {
+  const ret = await fetch.json(`${packageName}`)
   return ret
 }
 
@@ -99,13 +99,10 @@ export async function extractTarball(
     const allWriteStream: any[] = []
     const dirCollector: string[] = []
 
-    progress(
-      request({
-        url: tarballURL,
-        timeout: 1000000,
-      }),
-    )
-      .on('progress', progressFunc)
+    request({
+      url: tarballURL,
+      timeout: 60 * 1000,
+    })
       //   .on('error', reject)
       .pipe(new tar.Parse())
       .on('entry', (entry) => {
@@ -209,12 +206,21 @@ async function fetchPackageConfig(packageName: string, version: string) {
     : null
 }
 
+export async function getTarballURL(packageName: string, version: string) {
+  const tarballName = isScopedPackageName(packageName)
+    ? packageName.split('/')[1]
+    : packageName
+
+  return `${NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
+}
+
 /**
  * Returns metadata about a package, mostly the same as package.json.
  * Uses a cache to avoid over-fetching from the registry.
  */
 export async function getPackageConfig(packageName: string, version: string) {
   const cacheKey = `config-${packageName}-${version}` as any
+
   const cacheValue = cache.get(cacheKey) as any
 
   if (cacheValue != null) {
@@ -223,8 +229,12 @@ export async function getPackageConfig(packageName: string, version: string) {
 
   const value = await fetchPackageConfig(packageName, version)
 
-  if (value == null) {
-    cache.set(cacheKey, notFound, (5 * oneMinute) as any)
+  if (value === null) {
+    try {
+      cache.set(cacheKey, notFound, (5 * oneMinute) as any)
+    } catch (error) {
+      Logger.error(error)
+    }
     return null
   }
 
@@ -232,31 +242,9 @@ export async function getPackageConfig(packageName: string, version: string) {
   return value
 }
 
-export async function getTarballURL(packageName: string, version: string) {
-  const tarballName = isScopedPackageName(packageName)
-    ? packageName.split('/')[1]
-    : packageName
-
-  const tarballURL = `${NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
-
-  const { hostname, pathname } = new URL(tarballURL)
-
-  const options = {
-    agent: agent,
-    hostname: hostname,
-    path: pathname,
-    timeout: 100,
-  }
-
-  const res = await get(options)
-  if (res.statusCode < 400) {
-    return `${NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
-  }
-  return `${FALLBACK_NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
-}
-
 export async function getVersionsAndTags(packageName: string) {
   const cacheKey = `versions-${packageName}` as any
+
   const cacheValue = cache.get(cacheKey) as any
 
   if (cacheValue !== null && cacheValue !== undefined) {
@@ -266,7 +254,11 @@ export async function getVersionsAndTags(packageName: string) {
   const value = await fetchVersionsAndTags(packageName)
 
   if (value === null) {
-    cache.set(cacheKey, notFound, (5 * oneMinute) as any)
+    try {
+      cache.set(cacheKey, notFound, (5 * oneMinute) as any)
+    } catch (error) {
+      Logger.error(error)
+    }
     return null
   }
 

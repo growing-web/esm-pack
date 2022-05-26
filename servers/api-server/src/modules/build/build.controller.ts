@@ -1,6 +1,6 @@
+import type { Response } from 'express'
 import { Controller, Get, Param, Res } from '@nestjs/common'
 import { BuildService } from './build.service'
-import type { Response } from 'express'
 
 @Controller()
 export class BuildController {
@@ -14,7 +14,8 @@ export class BuildController {
    */
   @Get('/build/*')
   async build(@Param() param, @Res() res: Response) {
-    await this.buildService.build(param['0'], false)
+    const pathname = param['0']
+    await this.buildService.build(pathname)
     res.status(200).send('ok')
   }
 }

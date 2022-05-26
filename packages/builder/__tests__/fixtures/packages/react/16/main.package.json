@@ -1,8 +1,6 @@
 {
   "browserify": {
-    "transform": [
-      "loose-envify"
-    ]
+    "transform": ["loose-envify"]
   },
   "bugs": {
     "url": "https://github.com/facebook/react/issues"
@@ -29,9 +27,7 @@
     "jsx-dev-runtime.js"
   ],
   "homepage": "https://reactjs.org/",
-  "keywords": [
-    "react"
-  ],
+  "keywords": ["react"],
   "license": "MIT",
   "main": "index.js",
   "name": "react",
@@ -40,6 +36,5 @@
     "url": "git+https://github.com/facebook/react.git",
     "directory": "packages/react"
   },
-  "version": "16.14.0",
-  "__ESMD__": true
+  "version": "16.14.0"
 }

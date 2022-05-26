@@ -28,6 +28,5 @@
   "bugs": {
     "url": "https://github.com/vuejs/core/issues"
   },
-  "homepage": "https://github.com/vuejs/core/tree/main/packages/shared#readme",
-  "__ESMD__": true
+  "homepage": "https://github.com/vuejs/core/tree/main/packages/shared#readme"
 }

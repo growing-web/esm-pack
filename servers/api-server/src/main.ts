@@ -1,18 +1,18 @@
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
+import helmet from 'helmet'
+import compression from 'compression'
+import { ConfigService } from './config/config.service'
+import { Logger } from './plugins'
+import { loadEnv } from './utils/env'
 import {
   ExpressAdapter,
   NestExpressApplication,
 } from '@nestjs/platform-express'
-import helmet from 'helmet'
-// import compression from 'compression'
-import { ConfigService } from './config/config.service'
-import { Logger } from './plugins'
-import { isDev } from './utils/env'
 import morgan from 'morgan'
 
 async function bootstrap() {
-  //   process.setMaxListeners(0)
+  loadEnv()
   const app = await NestFactory.create<NestExpressApplication>(
     AppModule,
     new ExpressAdapter(),
@@ -22,7 +22,7 @@ async function bootstrap() {
   app.enable('trust proxy')
   app.enable('strict routing')
 
-  if (isDev) {
+  if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev'))
   }
 
@@ -30,11 +30,10 @@ async function bootstrap() {
     origin: (origin, cb) => {
       cb(null, true)
     },
-    // credentials: true,
   })
 
   app.use(helmet())
-  //   app.use(compression())
+  app.use(compression())
 
   const configService = app.get(ConfigService)
   const { appPort, apiPrefix } = configService

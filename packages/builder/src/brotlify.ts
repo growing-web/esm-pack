@@ -72,7 +72,7 @@ export async function brotli(bundle: any, outdir: string) {
   await Promise.all(compressCollection)
 }
 
-export function brotliPlugin() {
+export function rollupBrotliPlugin() {
   let outdir = ''
   return {
     name: 'brotli',

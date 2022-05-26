@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "sourceMap": false,
+    "declaration": false,
+    "incremental": false
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".esmd",
+    "tests",
+    "**/*spec.ts",
+    "**/__tests__/**",
+    "**/fixtures/**",
+    "**/__snapshots__/**"
+  ]
+}

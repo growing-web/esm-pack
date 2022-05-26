@@ -1,9 +1,7 @@
 {
   "name": "react",
   "description": "React is a JavaScript library for building user interfaces.",
-  "keywords": [
-    "react"
-  ],
+  "keywords": ["react"],
   "version": "17.0.1",
   "homepage": "https://reactjs.org/",
   "bugs": "https://github.com/facebook/react/issues",
@@ -32,9 +30,6 @@
     "object-assign": "^4.1.1"
   },
   "browserify": {
-    "transform": [
-      "loose-envify"
-    ]
-  },
-  "__ESMD__": true
+    "transform": ["loose-envify"]
+  }
 }
