@@ -1,7 +1,7 @@
 import { format, transports, loggers } from 'winston'
 import { join } from 'path'
 import { devConsoleFormat } from './format'
-import { loadEnv, isProd } from '../../utils/env'
+import { loadEnv } from '@growing-web/esmpack-shared'
 import 'winston-daily-rotate-file'
 
 loadEnv()
@@ -28,7 +28,7 @@ function createConsoleTransport() {
       simple(),
       devConsoleFormat,
     ),
-    level: isProd ? 'info' : 'debug',
+    level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
   })
 }
 

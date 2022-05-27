@@ -1,10 +1,9 @@
 import { NestFactory } from '@nestjs/core'
 import { AppModule } from './app.module'
 import helmet from 'helmet'
-// import compression from 'compression'
 import { ConfigService } from './config/config.service'
 import { Logger } from './plugins'
-import { isDev, loadEnv } from './utils/env'
+import { loadEnv } from '@growing-web/esmpack-shared'
 import {
   ExpressAdapter,
   NestExpressApplication,
@@ -22,7 +21,7 @@ async function bootstrap() {
   app.enable('trust proxy')
   app.enable('strict routing')
 
-  if (isDev) {
+  if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev'))
   }
 
@@ -33,7 +32,6 @@ async function bootstrap() {
   })
 
   app.use(helmet())
-  //   app.use(compression())
 
   const configService = app.get(ConfigService)
   const { appPort, apiPrefix } = configService

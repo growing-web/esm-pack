@@ -1,4 +1,4 @@
-import path from 'path'
+import path from 'node:path'
 import mime from 'mime'
 
 mime.define(
@@ -19,15 +19,12 @@ mime.define(
 
 const textFiles = /\/?(\.[a-z]*rc|\.git[a-z]*|\.[a-z]*ignore|\.lock)$/i
 
-export function getContentType(file) {
-  const name = path.basename(file)
+export function getContentType(file: string) {
+  const name = path.basename(file, '.br')
 
-  return textFiles.test(name)
+  const type = textFiles.test(name)
     ? 'text/plain'
-    : // @ts-ignore
-      mime.getType(name) || 'text/plain'
-}
+    : mime.getType(name) || 'text/plain'
 
-export function getContentTypeHeader(type: string) {
   return type === 'application/javascript' ? type + '; charset=utf-8' : type
 }

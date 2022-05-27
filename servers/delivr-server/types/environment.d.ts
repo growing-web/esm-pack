@@ -13,6 +13,5 @@ declare namespace NodeJS {
     OSS_ACCESS_KEY_ID: string
     OSS_ACCESS_KEY_SECRET: string
     OSS_BUCKET: string
-    CDN_URL: string
   }
 }

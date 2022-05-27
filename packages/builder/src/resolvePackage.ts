@@ -1,15 +1,15 @@
 import type { PackageJson } from 'pkg-types'
-import { readPackageJSON } from 'pkg-types'
-import { fileResolveByExtension, fileReader } from './utils'
+import path from 'node:path'
+import fg from 'fast-glob'
+import fs from 'fs-extra'
+import { isObject, isString } from 'lodash'
 import { parse as cjsParse } from 'cjs-esm-exports'
 import { init as esInit, parse as esParse } from 'es-module-lexer'
+import { readPackageJSON } from 'pkg-types'
+import { fileResolveByExtension, fileReader } from './utils'
+import { enableSourceMap } from './config'
 import { FILE_EXCLUDES, FILE_EXTENSIONS, FILES_IGNORE } from './constants'
 import { recursionExportsValues } from './recursion'
-import fg from 'fast-glob'
-import path from 'path'
-import fs from 'fs-extra'
-import _ from 'lodash'
-import { enableSourceMap } from './config'
 
 type Recordable = Record<string, any>
 
@@ -41,7 +41,7 @@ export async function resolvePackage(cachePath: string) {
 
 export async function resolveImports(pkg: Recordable) {
   const { browser } = pkg
-  if (!browser || !_.isObject(browser)) {
+  if (!browser || !isObject(browser)) {
     return {}
   }
 
@@ -80,34 +80,34 @@ export async function resolveExports(pkg: PackageJson, root: string) {
   // exports exits
   if (pkgExports !== undefined && pkgExports !== null) {
     // export include {"./*":"./*"}
-    if (_.isObject(pkgExports)) {
+    if (isObject(pkgExports)) {
       if (pkgExports['./*'] === './*') {
         const result = await addCjsFiledToExports({
           root,
           pkgExports,
           cjsMainFiles,
         })
-        return await developmentifyExports(result, root)
+        return await transformResultExports(result, root)
       }
       pkgExports['./package.json'] = './package.json.js'
     }
-    if (_.isString(pkgExports)) {
+    if (isString(pkgExports)) {
       pkgExports = { '.': pkgExports }
     }
 
     for (const [key, pattern] of Object.entries(pkgExports)) {
       if (
         (key.includes('*') &&
-          _.isString(pattern) &&
+          isString(pattern) &&
           (pattern as string).includes('*')) ||
         (key.endsWith('/') &&
-          _.isString(pattern) &&
+          isString(pattern) &&
           (pattern as string).endsWith('/'))
       ) {
         await addMatchFileToExports(pattern as string, pkgExports, root)
         continue
       }
-      if (_.isObject(pattern)) {
+      if (isObject(pattern)) {
         await handleObjectPattern({
           root,
           pkgExports,
@@ -122,7 +122,7 @@ export async function resolveExports(pkg: PackageJson, root: string) {
       pkgExports,
       cjsMainFiles,
     })
-    return await developmentifyExports(result, root)
+    return await transformResultExports(result, root)
   } else if (!pkgExports) {
     // const cjsManiFiles: string = []
 
@@ -191,7 +191,7 @@ export async function resolveExports(pkg: PackageJson, root: string) {
 
   result = await handlerPkgBrowser(pkgBrowser as any, result)
 
-  return await developmentifyExports(result, root)
+  return await transformResultExports(result, root)
 }
 
 export async function resolveFiles(
@@ -236,7 +236,25 @@ export async function resolveFiles(
 
   files.push(...matchFiles, ...matchTsFiles)
   files = files.filter((item) => !['*', '.', './', './*'].includes(item))
+
   return Array.from(new Set(files)).sort()
+}
+
+async function transformResultExports(resultExports: Recordable, root: string) {
+  const pkgExports = await developmentifyExports(resultExports, root)
+
+  const ret: Recordable = {}
+
+  for (const [key, value] of Object.entries(pkgExports)) {
+    const basename = path.basename(key)
+    // TODO lodash、ramda、underscore 等多入口包，_开头为私有包，应该跳过，该方法不是很优雅，但能适合大多数的包，如果有特殊的包，可以优化逻辑
+    if (basename.startsWith('_')) {
+      continue
+    }
+    ret[key] = value
+  }
+
+  return ret
 }
 
 async function developmentifyExports(pkgExports: Recordable, root: string) {
@@ -247,7 +265,7 @@ async function developmentifyExports(pkgExports: Recordable, root: string) {
       !ext ||
       key.endsWith('.prod.cjs') ||
       !['.js', '.cjs'].includes(ext) ||
-      !_.isString(value) ||
+      !isString(value) ||
       key === './index.js'
     ) {
       continue
@@ -301,13 +319,13 @@ async function handlerPkgBrowser(
   pkgBrowser: Recordable | undefined,
   pkgExports: Recordable,
 ) {
-  if (!pkgBrowser || _.isString(pkgBrowser)) {
+  if (!pkgBrowser || isString(pkgBrowser)) {
     return pkgExports
   }
 
   const resultExports = pkgExports
   for (const [key, value] of Object.entries(pkgBrowser)) {
-    if (!resultExports[key] || _.isString(resultExports[key])) {
+    if (!resultExports[key] || isString(resultExports[key])) {
       resultExports[removeFileExt(key)] = resultExports[key] = {
         default: normalizeExport(key),
         browser: normalizeExport(value),
@@ -385,24 +403,24 @@ async function handleObjectPattern({
     if (IGNORE_KEYS.includes(pkey)) {
       continue
     }
-    if (_.isString(pval)) {
+    if (isString(pval)) {
       if (
         pattern.import &&
         pattern.require &&
-        _.isString(pattern.import) &&
-        _.isString(pattern.require) &&
+        isString(pattern.import) &&
+        isString(pattern.require) &&
         pattern.require !== pattern.import
       ) {
         continue
       }
 
       pkgExports[key][pkey] = await resolveMain(root, pval)
-    } else if (_.isObject(pval)) {
+    } else if (isObject(pval)) {
       for (const [ik, iv] of Object.entries(pval)) {
         if (IGNORE_KEYS.includes(ik)) {
           continue
         }
-        if (_.isString(iv)) {
+        if (isString(iv)) {
           pkgExports[key][pkey][ik] = await resolveMain(root, iv as string)
         }
       }
@@ -435,12 +453,12 @@ async function addCjsFiledToExports({
 }) {
   for (const [key, value] of Object.entries(pkgExports)) {
     // {require:'./index'}
-    if (_.isObject(value)) {
+    if (isObject(value)) {
       const requireFile = (value as any).require
       if (requireFile) {
-        if (_.isString(requireFile)) {
+        if (isString(requireFile)) {
           pkgExports[`${requireFile}!cjs`] = requireFile
-        } else if (_.isObject(requireFile)) {
+        } else if (isObject(requireFile)) {
           for (const rval of Object.values(requireFile)) {
             pkgExports[`${rval}!cjs`] = rval
           }
@@ -499,7 +517,7 @@ async function resolveMainAndModule(
     default: await resolveMain(root, pkgMain),
   }
 
-  if (_.isString(pkgBrowser)) {
+  if (isString(pkgBrowser)) {
     Object.assign(result, {
       browser: normalizeExport(pkgBrowser),
     })
@@ -570,8 +588,8 @@ export async function isDynamicEntry(source: string) {
   }
 }
 
-async function getFileType(root: string, filepath: string) {
-  if (!JS_RE.test(filepath)) {
+export async function getFileType(root: string, filepath = '') {
+  if (!JS_RE.test(path.join(root, filepath))) {
     return { isCjs: false, isEsm: false, isUmd: false }
   }
   const pkg = await readPackageJSON(root)

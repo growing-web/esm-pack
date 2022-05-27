@@ -1,6 +1,6 @@
-import fs from 'fs'
-import { join, dirname } from 'path'
-import { createBrotliCompress, constants } from 'zlib'
+import fs from 'node:fs'
+import { join, dirname } from 'node:path'
+import { createBrotliCompress, constants } from 'node:zlib'
 
 const COMPRESS_RE =
   /\.(js|mjs|cjs|css|html|txt|xml|json|svg|ico|ttf|otf|eot|map)$/

@@ -1,11 +1,13 @@
 import semver from 'semver'
 import { getVersionsAndTags } from './npm'
-import { BUCKET_NPM_DIR } from '@/constants'
 
 const PACKAGE_RE =
   /^((?:@[^/\\%@]+\/)?[^./\\%@][^/\\%@]*)@?([^\\/]+)?(\/.*)?(\/.*)?$/
 
-export function parsePackagePathname(pathname: string) {
+export function parsePackagePathname(pathname?: string) {
+  if (!pathname) {
+    return null
+  }
   try {
     pathname = decodeURIComponent(pathname)
   } catch (error) {
@@ -47,18 +49,4 @@ export async function resolvePackageVersion(
   }
 
   return null
-}
-
-export function getOssPrefix(packageName: string, packageVersion: string) {
-  return `${BUCKET_NPM_DIR}/${getPackageNameAndVersion(
-    packageName,
-    packageVersion,
-  )}/`
-}
-
-export function getPackageNameAndVersion(
-  packageName: string,
-  packageVersion: string,
-) {
-  return `${packageName}@${packageVersion}`
 }

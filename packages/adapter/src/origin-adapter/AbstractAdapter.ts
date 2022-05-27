@@ -1,7 +1,9 @@
-import type { UploadOptions } from './types'
+import type { UploadOptions, PutOptions } from './types'
 
 export abstract class BasicAdapter {
-  abstract upload(options: UploadOptions)
+  abstract uploadDir(options: UploadOptions)
   abstract isExistObject(objectName: string)
   abstract getObjectStream(objectName: string)
+  abstract deleteFile(objectName: string)
+  abstract put(options: PutOptions)
 }

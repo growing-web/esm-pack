@@ -1,7 +1,7 @@
 import { format, transports, loggers } from 'winston'
 import { join } from 'path'
 import { devConsoleFormat } from './format'
-import { loadEnv } from '../../utils/env'
+import { loadEnv } from '@growing-web/esmpack-shared'
 import 'winston-daily-rotate-file'
 
 loadEnv()

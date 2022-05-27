@@ -4,7 +4,7 @@ import helmet from 'helmet'
 import compression from 'compression'
 import { ConfigService } from './config/config.service'
 import { Logger } from './plugins'
-import { loadEnv } from './utils/env'
+import { loadEnv } from '@growing-web/esmpack-shared'
 import {
   ExpressAdapter,
   NestExpressApplication,

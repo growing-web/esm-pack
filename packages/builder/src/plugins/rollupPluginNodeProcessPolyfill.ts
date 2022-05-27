@@ -1,5 +1,5 @@
+import type { Plugin } from 'rollup'
 import inject from '@rollup/plugin-inject'
-import { Plugin } from 'rollup'
 import generateProcessPolyfill from './generateProcessPolyfill'
 
 const PROCESS_MODULE_NAME = 'process'

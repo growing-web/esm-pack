@@ -1,7 +1,7 @@
 import { MiddlewareConsumer, Module } from '@nestjs/common'
 import { NpmController } from './npm.controller'
 import { NpmService } from './npm.service'
-import { NoQueryMiddleware } from '../../common/middleware'
+import { NoQueryMiddleware } from '@/common/middleware'
 
 @Module({
   controllers: [NpmController],

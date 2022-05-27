@@ -1,6 +1,6 @@
 import type { Plugin } from 'rollup'
-import fs from 'fs'
-import path from 'path'
+import fs from 'node:fs'
+import path from 'node:path'
 import execa from 'execa'
 import isValidIdentifier from 'is-valid-identifier'
 import resolve from 'resolve'

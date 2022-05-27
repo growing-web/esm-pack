@@ -1,5 +1,5 @@
 import type { Plugin } from 'rollup'
-import path from 'path'
+import path from 'node:path'
 
 export function rollupUrlReplacePlugin(): Plugin {
   return {

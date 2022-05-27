@@ -3,7 +3,6 @@ import {
   ConfigModule as NestConfigModule,
   ConfigService as NestConfigService,
 } from '@nestjs/config'
-import { ENV } from '@/utils/env'
 import { ConfigService } from '@/config/config.service'
 import appConfiguration from '@/config/app'
 import Joi from '@hapi/joi'
@@ -16,7 +15,12 @@ const isBoolean = Joi.string().valid('true', 'false')
     NestConfigModule.forRoot({
       isGlobal: true,
       ignoreEnvFile: false,
-      envFilePath: [`.env.${ENV}.local`, `.env.${ENV}`, '.env.local', '.env'],
+      envFilePath: [
+        `.env.${process.env.NODE_ENV}.local`,
+        `.env.${process.env.NODE_ENV}`,
+        '.env.local',
+        '.env',
+      ],
       load: [appConfiguration],
       validationSchema: Joi.object({
         APP_PORT: Joi.number().default(3000),

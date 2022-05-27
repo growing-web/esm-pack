@@ -1,29 +1,31 @@
 import type { Options } from 'ali-oss'
-import type { UploadOptions } from './types'
+import type { UploadOptions, PutOptions } from './types'
 import OSS from 'ali-oss'
 import fg from 'fast-glob'
-import path from 'path'
-// import stackTrace from 'stacktrace-js'
+import path from 'node:path'
+import { pick } from 'lodash'
 import { BasicAdapter } from './AbstractAdapter'
+import { getContentType } from '../utils/contentType'
 
 export class AliOssOriginAdapter<
   T extends Options = Options,
 > extends BasicAdapter {
   options: T
+  client: OSS
   constructor(options: T) {
     super()
     this.options = options
+    this.client = this.createClient()
   }
 
-  async upload({ cwd, ignore, uploadDir = '' }: UploadOptions) {
+  async uploadDir({ cwd, ignore, uploadDir = '' }: UploadOptions) {
     const files = fg.sync('**/**', { ignore, cwd, absolute: true })
-    const client = this.createClient()
 
     try {
       // eslint-disable-next-line
       await Promise.allSettled(
         files.map((file) => {
-          return client.put(
+          return this.client.put(
             path.join(uploadDir, path.relative(cwd, file)),
             file,
             {
@@ -41,11 +43,23 @@ export class AliOssOriginAdapter<
     }
   }
 
+  async put({ cwd, file, uploadDir = '' }: PutOptions) {
+    try {
+      this.client.put(path.join(uploadDir, path.relative(cwd, file)), file, {
+        // 不要覆盖已有的文件
+        headers: { 'x-oss-forbid-overwrite': true },
+      })
+    } catch (error: any) {
+      if (error.toString().includes('FileAlreadyExistsError')) {
+        return
+      }
+      throw new Error(error)
+    }
+  }
+
   async isExistObject(objectName: string) {
     try {
-      const client = this.createClient()
-
-      await client.head(objectName)
+      await this.client.head(objectName)
       return true
     } catch (error: any) {
       if (
@@ -60,32 +74,51 @@ export class AliOssOriginAdapter<
 
   async getObjectStream(objectName: string) {
     try {
-      const client = this.createClient()
       // 填写Object完整路径。Object完整路径中不能包含Bucket名称。
-      const result = await client.getStream(objectName)
-      return result
-    } catch (e) {
-      console.log(e)
+      const { stream, res } = await this.client.getStream(objectName)
+      if (res.status >= 400) {
+        return null
+      }
+
+      const header = pick(
+        res.headers,
+        'last-modified',
+        'x-oss-object-type',
+        'x-oss-request-id',
+        'x-oss-hash-crc64ecma',
+        'x-oss-storage-class',
+        'x-oss-server-time',
+        'server',
+        'content-md5',
+        'content-length',
+      )
+      const filepath = stream?.req?.path ?? ''
+
+      header['Content-Type'] = getContentType(filepath)
+      return {
+        stream,
+        header,
+        filepath,
+      }
+    } catch (e: any) {
+      if (e && e.toString().includes('NoSuchKeyError')) {
+        return null
+      }
+      console.error(e)
+      return null
     }
   }
 
-  //   async createErrorLog(err: any, packageName: string, packageVersion: string) {
-  //     const libDir = `${packageName}@${packageVersion}`
-  //     const outputPath = path.join(OUTPUT_DIR, libDir)
-  //     stackTrace.fromError(err).then((result) => {
-  //       let errText = '\n'
-  //       result.forEach((item) => {
-  //         // @ts-ignore
-  //         item.setFileName(item.getFileName().replace(process.cwd(), ''))
-  //         console.log(item.toString())
-  //         errText += `${item.toString()}\n`
-  //       })
-  //       fs.outputFile(
-  //         path.join(outputPath, '_error.log'),
-  //         `${new Date().toLocaleString()} packageName: ${packageName} packageVersion:${packageVersion} \n${`\n${err.toString()}\n${errText}`}\n`,
-  //       )
-  //     })
-  //   }
+  async deleteFile(objectName: string) {
+    try {
+      // 填写Object完整路径。Object完整路径中不能包含Bucket名称。
+      await this.client.delete(objectName)
+      return true
+    } catch (e) {
+      console.error(e)
+      return false
+    }
+  }
 
   private createClient() {
     return new OSS(this.options)

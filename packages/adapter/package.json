@@ -11,6 +11,14 @@
   ],
   "license": "MIT",
   "author": "vben",
+  "exports": {
+    ".": {
+      "require": "./dist/index.cjs",
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.mjs"
+    }
+  },
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -27,9 +35,12 @@
   "dependencies": {
     "ali-oss": "^6.17.1",
     "fast-glob": "3.2.11",
-    "stacktrace-js": "^2.0.2"
+    "lodash": "4.17.21",
+    "mime": "^3.0.0"
   },
   "devDependencies": {
-    "@types/ali-oss": "^6.16.3"
+    "@types/ali-oss": "^6.16.3",
+    "@types/lodash": "4.14.182",
+    "@types/mime": "^2.0.3"
   }
 }

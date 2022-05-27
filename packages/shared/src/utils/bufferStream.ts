@@ -1,4 +1,4 @@
-import type { Stream } from 'stream'
+import type { Stream } from 'node:stream'
 
 export function bufferStream(stream: Stream): Promise<any> {
   return new Promise((resolve, reject) => {

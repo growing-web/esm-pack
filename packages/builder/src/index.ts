@@ -3,32 +3,56 @@ import commonjs from '@rollup/plugin-commonjs'
 import resolve from '@rollup/plugin-node-resolve'
 import esbuild from 'rollup-plugin-esbuild'
 import rollupJSONPlugin from '@rollup/plugin-json'
-import path from 'path'
+import path from 'node:path'
 import fs from 'fs-extra'
-import _ from 'lodash'
-import { APP_NAME } from './constants'
+import { readPackageJSON } from 'pkg-types'
 import { rollup } from 'rollup'
+import peerDepsExternal from 'rollup-plugin-peer-deps-external'
 import { rollupPluginWrapTargets } from './plugins/rollupPluginWrapExports'
 import { rollupPluginNodeProcessPolyfill } from './plugins/rollupPluginNodeProcessPolyfill'
 import { isDynamicEntry } from './resolvePackage'
-import { readPackageJSON } from 'pkg-types'
 import { rollupBrotliPlugin, brotli } from './brotlify'
 import { enableSourceMap } from './config'
-import peerDepsExternal from 'rollup-plugin-peer-deps-external'
-
+import { APP_NAME } from './constants'
 export * from './resolvePackage'
+export * from './recursion'
+
+export interface BuildOptions {
+  buildFiles: string[]
+  outputPath: string
+  sourcePath: string
+  sourcemap?: boolean
+  entryFiles?: string[]
+}
+
+export interface BuildMultipleEntryOptions {
+  inputMap: Record<string, string>
+  outputPath: string
+  sourcePath: string
+  env: string
+  name?: string
+  sourcemap: boolean
+  minify?: boolean
+}
+
+export interface BuildSingleEntryOptions {
+  input: string
+  outputPath: string
+  sourcePath: string
+  env: string
+  name?: string
+  sourcemap: boolean
+  devPrefix?: string
+  minify?: boolean
+}
 
 export async function build({
   buildFiles,
   outputPath,
   sourcePath,
   sourcemap = enableSourceMap,
-}: {
-  buildFiles: string[]
-  outputPath: string
-  sourcePath: string
-  sourcemap?: boolean
-}) {
+  entryFiles = [],
+}: BuildOptions) {
   const inputMap: Record<string, string> = {}
   const pkg = await readPackageJSON(sourcePath)
 
@@ -45,10 +69,14 @@ export async function build({
   )
 
   for (const file of buildFiles) {
+    if (entryFiles.includes(file)) {
+      continue
+    }
     let n = file.split('/').pop()
     if (!n) {
       continue
     }
+
     const extIndex = n.lastIndexOf('.')
     if (extIndex !== -1) n = n.slice(0, extIndex)
     if (inputMap[n]) {
@@ -60,8 +88,20 @@ export async function build({
   }
 
   await Promise.all([
+    Promise.all(
+      entryFiles.map((input) =>
+        doBuildSingleEntry({
+          input,
+          outputPath,
+          sourcePath,
+          env: 'production',
+          name: pkg.name,
+          sourcemap,
+        }),
+      ),
+    ),
     doBuildMultipleEntry({
-      input: inputMap,
+      inputMap: inputMap,
       outputPath,
       sourcePath,
       env: 'production',
@@ -84,28 +124,23 @@ export async function build({
 }
 
 export async function doBuildMultipleEntry({
-  input,
+  inputMap,
   sourcePath,
   outputPath,
   env,
   name,
   sourcemap,
-}: {
-  input: Record<string, string>
-  outputPath: string
-  sourcePath: string
-  env: string
-  name?: string
-  sourcemap: boolean
-}) {
-  const inputKeys = Object.keys(input)
+  minify = true,
+}: BuildMultipleEntryOptions) {
+  const inputKeys = Object.keys(inputMap)
   const bundle = await rollup({
-    input: input,
+    // preserveEntrySignatures: 'allow-extension',
+    input: inputMap,
     treeshake: { moduleSideEffects: true },
     onwarn: onWarning,
     external: (id) =>
       !inputKeys.includes(path.join(sourcePath, id)) && !needExternal(id),
-    plugins: [...createRollupPlugins(name, env)],
+    plugins: [...createRollupPlugins(name, minify, env)],
   })
 
   fs.ensureDirSync(outputPath)
@@ -115,7 +150,7 @@ export async function doBuildMultipleEntry({
     format: 'esm',
     exports: 'named',
     sourcemap,
-    // preserveModules: true,
+    compact: minify,
     entryFileNames: (chunk) => {
       let id = chunk.facadeModuleId
       id = id?.replace(/(\?commonjs-entry)$/, '') ?? id
@@ -190,23 +225,19 @@ export async function doBuildSingleEntry({
   env,
   name,
   sourcemap,
+  minify = true,
   devPrefix = 'dev.',
-}: {
-  input: string
-  outputPath: string
-  sourcePath: string
-  env: string
-  name?: string
-  sourcemap: boolean
-  devPrefix?: string
-}) {
+}: BuildSingleEntryOptions) {
   try {
     const bundle = await rollup({
       input: input,
       treeshake: { moduleSideEffects: true },
       onwarn: onWarning,
       external: (id) => path.join(id) !== path.join(input) && !needExternal(id),
-      plugins: [...createRollupPlugins(name, env), rollupBrotliPlugin()],
+      plugins: [
+        ...createRollupPlugins(name, minify, env),
+        rollupBrotliPlugin(),
+      ],
     })
 
     fs.ensureDirSync(outputPath)
@@ -231,7 +262,7 @@ export async function doBuildSingleEntry({
   }
 }
 
-function createRollupPlugins(name: string | undefined, env: string) {
+function createRollupPlugins(name: string | undefined, minify, env: string) {
   return [
     peerDepsExternal(),
     resolve({
@@ -247,12 +278,12 @@ function createRollupPlugins(name: string | undefined, env: string) {
     }),
     commonjs({
       extensions: ['.js', '.cjs'],
-      esmExternals: true,
+      //   esmExternals: true,
       requireReturnsDefault: 'auto',
     }),
     rollupPluginWrapTargets(false, name),
     esbuild({
-      minify: true,
+      minify: minify,
       define: {
         'process.env.NODE_ENV': JSON.stringify(env),
         'process.env.VUE_ENV': JSON.stringify('browser'),
