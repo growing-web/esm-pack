@@ -2,8 +2,8 @@ import { Controller, Get } from '@nestjs/common'
 
 @Controller()
 export class ApiController {
-  @Get('/ping')
+  @Get('/health')
   async ping() {
-    return 'pong'
+    return 'health'
   }
 }

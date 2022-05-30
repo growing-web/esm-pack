@@ -34,7 +34,9 @@
   "dependencies": {
     "dotenv": "16.0.1",
     "fs-extra": "^10.1.0",
+    "gunzip-maybe": "^1.4.2",
     "lru-cache": "^7.10.1",
+    "mime": "^3.0.0",
     "npm-registry-fetch": "^13.1.1",
     "request": "^2.88.2",
     "request-promise": "^4.2.6",

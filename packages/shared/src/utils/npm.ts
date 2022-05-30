@@ -6,6 +6,7 @@ import fs from 'fs-extra'
 import tar from 'tar'
 import request from 'request-promise'
 import LRUCache from 'lru-cache'
+import gunzip from 'gunzip-maybe'
 import { bufferStream } from './bufferStream'
 
 const oneMegabyte = 1024 * 1024
@@ -337,4 +338,40 @@ export async function getVersionsAndTags(packageName: string) {
 
   cache.set(cacheKey, JSON.stringify(value), { ttl: oneMinute })
   return value
+}
+
+/**
+ * Returns a stream of the tarball'd contents of the given package.
+ */
+export async function getPackage(packageName: string, version: string) {
+  const tarballURL = await getTarballURL(packageName, version)
+
+  console.debug('Fetching package for %s from %s', packageName, tarballURL)
+
+  const { hostname, pathname } = new URL(tarballURL)
+
+  const options = {
+    agent: agent,
+    hostname: hostname,
+    path: pathname,
+  }
+
+  const res = await get(options)
+
+  if (res.statusCode === 200) {
+    const stream = res.pipe(gunzip())
+    return stream
+  }
+
+  if (res.statusCode === 404) {
+    return null
+  }
+
+  console.error(
+    'Error fetching tarball for %s@%s (status: %s)',
+    packageName,
+    version,
+    res.statusCode,
+  )
+  return null
 }

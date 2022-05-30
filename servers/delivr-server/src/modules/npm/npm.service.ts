@@ -8,11 +8,16 @@ import {
   parsePackagePathname,
   getNpmMaxSatisfyingVersion,
   validateNpmPackageName,
+  getPackage,
+  getContentType,
 } from '@growing-web/esmpack-shared'
 import {
   ForbiddenException,
   InternalServerErrorException,
 } from '@/common/exception'
+import tar from 'tar-stream'
+import { createBrotliCompress, constants } from 'node:zlib'
+import { Stream, Readable } from 'node:stream'
 
 @Injectable()
 export class NpmService {
@@ -30,8 +35,9 @@ export class NpmService {
       packageName,
       packageVersion,
     )
+
     if (!version) {
-      throw new NotFoundException(`Cannot find package ${packageName}. `)
+      throw new NotFoundException(`Cannot found package ${packageName}. `)
     }
     return version
   }
@@ -43,19 +49,28 @@ export class NpmService {
     filename: string,
     acceptBrotli: boolean,
   ) {
-    // 极端情况，未能复现
+    // FIXME 极端情况，未能复现
     if (packageName === 'undefined') {
       throw new NotFoundException()
     }
 
     await this.validateNpmPackageName(packageName)
 
-    const entry = await this.resolveEntry(
+    let entry = await this.resolveEntry(
       packageName,
       packageVersion,
       filename,
       acceptBrotli,
     )
+
+    if (!entry) {
+      entry = await this.resolveEntryForNpm(
+        packageName,
+        packageVersion,
+        filename,
+        acceptBrotli,
+      )
+    }
 
     return entry
   }
@@ -151,5 +166,103 @@ export class NpmService {
 
   private getUploadDir(packageName: string, packageVersion: string) {
     return `${BUCKET_NPM_DIR}/${packageName}@${packageVersion}/`
+  }
+
+  /**
+   * 对于找不到入口的包，尝试从 npm 进行获取
+   */
+  async resolveEntryForNpm(
+    packageName: string,
+    packageVersion: string,
+    filename: string,
+    acceptBrotli: boolean,
+  ) {
+    const stream = await getPackage(packageName, packageVersion)
+
+    return await this.searchEntries(stream, filename, acceptBrotli)
+  }
+
+  async searchEntries(
+    stream,
+    filename: string,
+    acceptBrotli: boolean,
+  ): Promise<any> {
+    // filename = /some/file/name.js or /some/dir/name
+    return new Promise((resolve, reject) => {
+      let foundEntry
+
+      stream
+        .pipe(tar.extract())
+        .on('error', reject)
+        .on('entry', async (header, stream, next) => {
+          const entry = {
+            // Most packages have header names that look like `package/index.js`
+            // so we shorten that to just `index.js` here. A few packages use a
+            // prefix other than `package/`. e.g. the firebase package uses the
+            // `firebase_npm/` prefix. So we just strip the first dir name.
+            path: header.name.replace(/^[^/]+/g, ''),
+            type: header.type,
+          }
+
+          // Skip non-files and files that don't match the entryName.
+          if (entry.type !== 'file' || entry.path !== filename) {
+            stream.resume()
+            stream.on('end', next)
+            return
+          }
+
+          try {
+            let content = await bufferStream(stream)
+            if (acceptBrotli) {
+              content = await this.brotliCompress(content)
+            }
+            foundEntry = {
+              content,
+              filepath: entry.path,
+              header: {
+                'Last-Modified': header.mtime.toUTCString(),
+                'Content-Type': getContentType(entry.path),
+                ...(acceptBrotli
+                  ? { 'Content-Encoding': 'br' }
+                  : { 'Content-Length': content.length }),
+              },
+            }
+            next()
+          } catch (error) {
+            next(error)
+          }
+        })
+        .on('finish', () => {
+          resolve(foundEntry)
+        })
+    })
+  }
+
+  async brotliCompress(content: any): Promise<any> {
+    const MIN_SIZE = 1000
+    const brotliCompressOptions = {
+      [constants.BROTLI_PARAM_MODE]: constants.BROTLI_MODE_GENERIC,
+      [constants.BROTLI_PARAM_QUALITY]: 9, // turn down the quality, resulting in a faster compression (default is 11)
+    }
+    return new Promise((resolve, reject) => {
+      if (MIN_SIZE && MIN_SIZE > content.size) {
+        resolve(true)
+      } else {
+        const stream = new Readable()
+        stream.push(content) // the string you want
+        stream.push(null)
+        const chunks: Uint8Array[] = []
+
+        stream
+          .pipe(createBrotliCompress(brotliCompressOptions))
+          .on('data', (chunk) => {
+            chunks.push(chunk)
+          })
+          .on('end', () => {
+            resolve(Buffer.concat(chunks))
+          })
+          .on('error', reject)
+      }
+    })
   }
 }

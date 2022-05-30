@@ -121,6 +121,7 @@ export class BuildService {
       //   }
       try {
         const tarballURL = await getTarballURL(packageName, packageVersion)
+
         await extractTarball(sourcePath, tarballURL)
       } catch (error) {
         throw new NotFoundException(
@@ -136,7 +137,7 @@ export class BuildService {
 
     if (!downloadTarballSuccess) {
       throw new NotFoundException(
-        `Cannot find package ${packageName}@${packageVersion}`,
+        `Package ${packageName}@${packageVersion} not found in the npm registry.`,
       )
     }
 
@@ -198,11 +199,11 @@ export class BuildService {
       fs.outputFileSync(esmdFile, ESMPACK_ESMD_FILE, {
         encoding: 'utf-8',
       })
-      await originAdapter.put({
-        cwd: outputPath,
-        uploadDir,
-        file: esmdFile,
-      })
+      //   await originAdapter.put({
+      //     cwd: outputPath,
+      //     uploadDir,
+      //     file: esmdFile,
+      //   })
 
       // 清空输出目录，防止构建累计，导致文件过多
       await Promise.all([fs.remove(outputPath), fs.remove(sourcePath)])
