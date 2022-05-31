@@ -25,7 +25,7 @@
     "postinstall": "husky install",
     "lint": "eslint .  --fix",
     "pm2:restart": "pnpm --filter @growing-web/esmpack-*-server run pm2:restart",
-    "pm2:start": "pnpm --filter @growing-web/esmpack-*-server run pm2:start",
+    "pm2:start": "turbo run build && pnpm --filter @growing-web/esmpack-*-server run pm2:start",
     "pm2:stop": "pnpm --filter @growing-web/esmpack-*-server run pm2:stop",
     "pm2:delete": "pnpm --filter @growing-web/esmpack-*-server run pm2:delete",
     "prepublishOnly": "npm run build",
