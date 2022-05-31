@@ -1,3 +1,3 @@
-import { AliOssOriginAdapter } from './AliOss'
+import { AliOssOriginAdapter } from './aliOssAdapter'
 
 export default AliOssOriginAdapter
