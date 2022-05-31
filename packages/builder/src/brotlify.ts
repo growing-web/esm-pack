@@ -21,8 +21,9 @@ const magicBytes = [
 function isCompressed(bundle) {
   if (
     /\.(gz|zip|xz|lz2|7z|woff|woff2|jpg|jpeg|png|webp)$/.test(bundle.fileName)
-  )
+  ) {
     return true
+  }
   for (const bytes of magicBytes) {
     let matches = true
     const sourceBytes =

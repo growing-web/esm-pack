@@ -10,6 +10,7 @@ import {
   validateNpmPackageName,
   getPackage,
   getContentType,
+  isEsmFile,
 } from '@growing-web/esmpack-shared'
 import {
   ForbiddenException,
@@ -17,7 +18,8 @@ import {
 } from '@/common/exception'
 import tar from 'tar-stream'
 import { createBrotliCompress, constants } from 'node:zlib'
-import { Stream, Readable } from 'node:stream'
+import { Readable } from 'node:stream'
+import axios from 'axios'
 
 @Injectable()
 export class NpmService {
@@ -48,6 +50,7 @@ export class NpmService {
     packageVersion: string,
     filename: string,
     acceptBrotli: boolean,
+    isBrowser: boolean,
   ) {
     // FIXME 极端情况，未能复现
     if (packageName === 'undefined') {
@@ -63,6 +66,11 @@ export class NpmService {
       acceptBrotli,
     )
 
+    // 通过 jspm generate 进行build时候，不需要进行 npm 回源处理，只访问OSS内的文件即可
+    if (!isBrowser) {
+      return entry
+    }
+
     if (!entry) {
       entry = await this.resolveEntryForNpm(
         packageName,
@@ -70,6 +78,17 @@ export class NpmService {
         filename,
         acceptBrotli,
       )
+
+      // TODO
+      if (entry && process.env.BUILD_SERVER_UPLOAD_URL) {
+        axios
+          .post(process.env.BUILD_SERVER_UPLOAD_URL, {
+            packageName,
+            packageVersion,
+            filename,
+          })
+          .catch(() => {})
+      }
     }
 
     return entry
@@ -213,8 +232,15 @@ export class NpmService {
 
           try {
             let content = await bufferStream(stream)
+            if (!(await isEsmFile(content.toString()))) {
+              stream.resume()
+              stream.on('end', next)
+              resolve(null)
+              return
+            }
+
             if (acceptBrotli) {
-              content = await this.brotliCompress(content)
+              content = await this.brotliCompress(filename, content)
             }
             foundEntry = {
               content,
@@ -238,7 +264,7 @@ export class NpmService {
     })
   }
 
-  async brotliCompress(content: any): Promise<any> {
+  async brotliCompress(filename: string, content: any): Promise<any> {
     const MIN_SIZE = 1000
     const brotliCompressOptions = {
       [constants.BROTLI_PARAM_MODE]: constants.BROTLI_MODE_GENERIC,
@@ -247,6 +273,10 @@ export class NpmService {
     return new Promise((resolve, reject) => {
       if (MIN_SIZE && MIN_SIZE > content.size) {
         resolve(true)
+      } else if (
+        /\.(gz|zip|xz|lz2|7z|woff|woff2|jpg|jpeg|png|webp)$/.test(filename)
+      ) {
+        return true
       } else {
         const stream = new Readable()
         stream.push(content) // the string you want

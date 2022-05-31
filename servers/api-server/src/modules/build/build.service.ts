@@ -39,7 +39,7 @@ const lock = new AsyncLock()
 export class BuildService {
   constructor() {}
 
-  async build(pathname: string | undefined) {
+  async build(pathname: string | undefined, needBuild = true) {
     // 确保构建文件存在
     fs.ensureDirSync(ESM_DIR)
 
@@ -50,9 +50,12 @@ export class BuildService {
     /**
      * Node.js 进程锁，防止同一个线程执行相同的包构建任务
      */
-    const lockKey = `${packageName}@${packageVersion}`
+    const lockKey = `build-${packageName}@${packageVersion}`
     return lock
-      .acquire(lockKey, this.doBuild.bind(this, packageName, packageVersion))
+      .acquire(
+        lockKey,
+        this.doBuild.bind(this, packageName, packageVersion, needBuild),
+      )
       .catch((err) => {
         // 记录错误信息到构建目录对应包下面的 _error.json 文件
         // outputErrorLog(err, packageName, packageVersion)
@@ -60,7 +63,7 @@ export class BuildService {
       })
   }
 
-  async doBuild(packageName: string, packageVersion: string) {
+  async doBuild(packageName: string, packageVersion: string, needBuild = true) {
     // 检测包名或者版本号是否存在
     if (!packageVersion || !packageName) {
       throw new NotFoundException(
@@ -152,41 +155,45 @@ export class BuildService {
 
     // HACK 处理 Node.js 模块可能存在构建问题
     if (packageName === '@jspm/core') {
-      fs.copy(sourcePath, outputPath)
+      await fs.copy(sourcePath, outputPath)
       return
     }
 
     try {
-      // 重写 package.json
-      const packageJson = await this.rewritePackage(sourcePath)
+      if (needBuild) {
+        // 重写 package.json
+        const packageJson = await this.rewritePackage(sourcePath)
 
-      const { buildFiles, needCopyFiles } = await this.getFiles(
-        sourcePath,
-        packageJson,
-      )
+        const { buildFiles, needCopyFiles } = await this.getFiles(
+          sourcePath,
+          packageJson,
+        )
 
-      // 清空可能存在的构建输出文件
-      await fs.remove(outputPath)
+        // 清空可能存在的构建输出文件
+        await fs.remove(outputPath)
 
-      const entryFiles = this.getEntryFiles(packageJson, sourcePath)
-      // 执行构建
+        const entryFiles = this.getEntryFiles(packageJson, sourcePath)
+        // 执行构建
 
-      await build({
-        buildFiles,
-        sourcePath,
-        outputPath,
-        entryFiles,
-      })
+        await build({
+          buildFiles,
+          sourcePath,
+          outputPath,
+          entryFiles,
+        })
 
-      // 拷贝其余文件到构建输出目录
-      await Promise.all(
-        needCopyFiles.map((file) =>
-          fs.copy(
-            path.resolve(sourcePath, file),
-            path.resolve(outputPath, file),
+        // 拷贝其余文件到构建输出目录
+        await Promise.all(
+          needCopyFiles.map((file) =>
+            fs.copy(
+              path.resolve(sourcePath, file),
+              path.resolve(outputPath, file),
+            ),
           ),
-        ),
-      )
+        )
+      } else {
+        await fs.copy(sourcePath, outputPath)
+      }
 
       //   upload oss
       await originAdapter.uploadDir({
@@ -199,11 +206,11 @@ export class BuildService {
       fs.outputFileSync(esmdFile, ESMPACK_ESMD_FILE, {
         encoding: 'utf-8',
       })
-      //   await originAdapter.put({
-      //     cwd: outputPath,
-      //     uploadDir,
-      //     file: esmdFile,
-      //   })
+      await originAdapter.put({
+        cwd: outputPath,
+        uploadDir,
+        file: esmdFile,
+      })
 
       // 清空输出目录，防止构建累计，导致文件过多
       await Promise.all([fs.remove(outputPath), fs.remove(sourcePath)])

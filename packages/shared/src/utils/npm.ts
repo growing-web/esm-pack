@@ -141,30 +141,30 @@ function encodePackageName(packageName: string) {
     : encodeURIComponent(packageName)
 }
 
+// async function fetchPackageInfo(packageName: string) {
+//   const FALLBACK_NPM_REGISTRY_URL = process.env
+//     .FALLBACK_NPM_REGISTRY_URL as string
+
+//   const NPM_REGISTRY_URL = process.env.NPM_REGISTRY_URL as string
+
+//   if (process.env.FALLBACK_MODE !== 'on') {
+//     return await _fetchPackageInfo(packageName, NPM_REGISTRY_URL)
+//   }
+
+//   try {
+//     const info = await _fetchPackageInfo(packageName, NPM_REGISTRY_URL)
+//     if (info) {
+//       return info
+//     }
+//     throw new Error()
+//   } catch (error) {
+//     return await _fetchPackageInfo(packageName, FALLBACK_NPM_REGISTRY_URL)
+//   }
+// }
+
 async function fetchPackageInfo(packageName: string) {
-  const FALLBACK_NPM_REGISTRY_URL = process.env
-    .FALLBACK_NPM_REGISTRY_URL as string
-
-  const NPM_REGISTRY_URL = process.env.NPM_REGISTRY_URL as string
-
-  if (process.env.FALLBACK_MODE !== 'on') {
-    return await _fetchPackageInfo(packageName, NPM_REGISTRY_URL)
-  }
-
-  try {
-    const info = await _fetchPackageInfo(packageName, NPM_REGISTRY_URL)
-    if (info) {
-      return info
-    }
-    throw new Error()
-  } catch (error) {
-    return await _fetchPackageInfo(packageName, FALLBACK_NPM_REGISTRY_URL)
-  }
-}
-
-async function _fetchPackageInfo(packageName: string, npmRegistry: string) {
   const name = encodePackageName(packageName)
-  const infoURL = `${npmRegistry}/${name}`
+  const infoURL = `${process.env.NPM_REGISTRY_URL}/${name}`
 
   console.debug('Fetching package info for %s from %s', packageName, infoURL)
 
@@ -214,30 +214,30 @@ async function fetchPackageConfig(packageName: string, version: string) {
     : null
 }
 
-// export async function getTarballURL(packageName: string, version: string) {
-//   const tarballName = isScopedPackageName(packageName)
-//     ? packageName.split('/')[1]
-//     : packageName
-
-//   return `${NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
-// }
-
 export async function getTarballURL(packageName: string, version: string) {
-  if (process.env.FALLBACK_MODE !== 'on') {
-    return await _getTarballURL(packageName, version, true)
-  }
+  const tarballName = isScopedPackageName(packageName)
+    ? packageName.split('/')[1]
+    : packageName
 
-  try {
-    const ret = await _getTarballURL(packageName, version, false)
-
-    if (ret) {
-      return ret
-    }
-    throw new Error()
-  } catch (error) {
-    return await _getTarballURL(packageName, version, true)
-  }
+  return `${process.env.NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
 }
+
+// export async function getTarballURL(packageName: string, version: string) {
+//   if (process.env.FALLBACK_MODE !== 'on') {
+//     return await _getTarballURL(packageName, version, true)
+//   }
+
+//   try {
+//     const ret = await _getTarballURL(packageName, version, false)
+
+//     if (ret) {
+//       return ret
+//     }
+//     throw new Error()
+//   } catch (error) {
+//     return await _getTarballURL(packageName, version, true)
+//   }
+// }
 
 async function _getTarballURL(
   packageName: string,

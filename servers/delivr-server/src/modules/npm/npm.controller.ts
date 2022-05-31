@@ -6,6 +6,7 @@ import { NpmService } from './npm.service'
 import { ForbiddenException } from '@/common/exception'
 import { parsePackagePathname } from '@growing-web/esmpack-shared'
 import { FULL_VERSION_RE } from '@/constants'
+import { UAParser } from 'ua-parser-js'
 
 @Controller()
 export class NpmController {
@@ -26,6 +27,7 @@ export class NpmController {
     }
 
     const { packageName, packageVersion, filename } = parsed
+
     //   解析URL请求，获取包名，
     if (!packageVersion || !FULL_VERSION_RE.test(packageVersion)) {
       const result = await this.npmService.maxSatisfyingVersion(pathname)
@@ -40,22 +42,26 @@ export class NpmController {
 
     const acceptEncoding = req.header('Accept-Encoding')
     const acceptBrotli = acceptEncoding?.includes('br') ?? false
+
+    const browser = UAParser(req.header('user-agent'))?.browser
+    const isBrowser = !!browser.name
     const entry = await this.npmService.resolveFile(
       packageName,
       packageVersion,
       filename,
       acceptBrotli,
+      isBrowser,
     )
 
     if (!entry) {
       return res
         .status(404)
         .set({
-          'Cache-Control': 'public, max-age=31536000', // 1 year
+          //   'Cache-Control': 'public, max-age=31536000', // 1 year
           'Cache-Tag': 'missing, missing-entry',
         })
         .type('text')
-        .send(`Cannot Found "${filename}" in ${packageName}`)
+        .send(`Cannot found "${filename}" in ${packageName}`)
     }
 
     const tags = ['file']

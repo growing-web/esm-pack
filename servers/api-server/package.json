@@ -24,13 +24,11 @@
     "prebuild": "pnpm rimraf dist",
     "build": "pnpm cross-env NODE_ENV=production nest build",
     "dev": "pnpm cross-env  yarn start:dev",
-    "pm2:restart": "npm run build && pm2 reload ecosystem.config.js",
-    "pm2:start": "npm run build && pm2 startOrRestart ecosystem.config.js --env production",
-    "pm2:stop": "pm2 stop ecosystem.config.js",
-    "start": "pnpm cross-env NODE_ENV=development nest start",
-    "start:debug": "pnpm cross-env NODE_ENV=development nest start  --watch",
-    "start:dev": "pnpm cross-env NODE_ENV=development nest start --watch",
-    "start:prod": "node dist/main.js"
+    "pm2:restart": "npm run build && pnpm pm2 reload ecosystem.config.js --env production",
+    "pm2:start": "npm run build && pnpm pm2 startOrRestart ecosystem.config.js --env production",
+    "pm2:stop": "pnpm pm2 stop ecosystem.config.js",
+    "pm2:delete": "pnpm pm2 delete ecosystem.config.js",
+    "start": "pnpm cross-env NODE_ENV=production node dist/main.js"
   },
   "dependencies": {
     "@growing-web/esmpack-adapter": "workspace:*",
@@ -59,7 +57,7 @@
     "resolve": "^1.22.0",
     "rxjs": "^7.5.5",
     "winston": "3.7.2",
-    "winston-daily-rotate-file": "4.6.1"
+    "winston-daily-rotate-file": "4.7.1"
   },
   "devDependencies": {
     "@nestjs/cli": "^8.2.6",
