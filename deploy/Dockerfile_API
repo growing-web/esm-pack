@@ -5,7 +5,7 @@ MAINTAINER vben
 ARG NODE_ENV=production
 
 # 安装目录
-ARG APP_INSTALL_PATH=/var/publish/esm-app
+ARG APP_INSTALL_PATH=/usr/apps/esmpack-api-server
 
 ENV NODE_ENV=${NODE_ENV}
 
@@ -16,12 +16,11 @@ WORKDIR ${APP_INSTALL_PATH}
 
 COPY . ${APP_INSTALL_PATH}
 
-RUN npm i -g pnpm
+RUN npm i -g pnpm --registry=https://registry.npmmirror.com
 
 RUN pnpm install
 
-RUN pnpm run build
+EXPOSE 6123
 
-EXPOSE 6661
-
-CMD ["npm","run","pm2:start"]
+CMD ['pnpm','run','build']
+CMD ["npm","run","start:api"]

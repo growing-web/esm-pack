@@ -1,3 +1,4 @@
+const RUNTIME_TOTAL_CPU = process.env.RUNTIME_TOTAL_CPU || 2
 module.exports = {
   apps: [
     {
@@ -11,9 +12,9 @@ module.exports = {
       error_file: '.logs/pm2/cashier-error.log',
       out_file: '.logs/pm2/cashier-out.log',
       merge_logs: true,
+      exec_mode: 'cluster',
       node_args: '--harmony',
-      instances: 2,
-      max_memory_restart: '2G',
+      instances: RUNTIME_TOTAL_CPU,
       env: {
         NODE_ENV: 'production',
       },

@@ -19,7 +19,7 @@ import {
 import tar from 'tar-stream'
 import { createBrotliCompress, constants } from 'node:zlib'
 import { Readable } from 'node:stream'
-import axios from 'axios'
+// import axios from 'axios'
 
 @Injectable()
 export class NpmService {
@@ -80,15 +80,15 @@ export class NpmService {
       )
 
       // TODO
-      if (entry && process.env.BUILD_SERVER_UPLOAD_URL) {
-        axios
-          .post(process.env.BUILD_SERVER_UPLOAD_URL, {
-            packageName,
-            packageVersion,
-            filename,
-          })
-          .catch(() => {})
-      }
+      //   if (entry && process.env.BUILD_SERVER_UPLOAD_URL) {
+      //     axios
+      //       .post(process.env.BUILD_SERVER_UPLOAD_URL, {
+      //         packageName,
+      //         packageVersion,
+      //         filename,
+      //       })
+      //       .catch(() => {})
+      //   }
     }
 
     return entry

@@ -1,0 +1,31 @@
+version: '3'
+services:
+  api:
+    build:
+      context: ./
+      args:
+        NODE_ENV: production
+    # 构建镜像名，使用项目名
+    image: esmpack-api-server:prod
+    container_name: esmpack-api-server
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      # 端口映射。开发机器上开放的端口：服务运行实际监听的端口
+      - '8080:6123'
+    command: ['npm', 'run', 'start:api']
+    healthcheck:
+      test: curl -f http://localhost:6123/health
+      interval: 15s
+      timeout: 1s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - './:/usr/apps/esmpack-api-server'
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
