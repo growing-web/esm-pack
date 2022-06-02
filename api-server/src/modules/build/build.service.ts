@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { PackageJson, writePackageJSON } from 'pkg-types'
-import { originAdapter } from '@/originAdapter'
+import { createOriginAdapter } from '@/originAdapter'
 import fs from 'fs-extra'
 import path from 'node:path'
 import AsyncLock from 'async-lock'
@@ -76,6 +76,7 @@ export class BuildService {
 
     const uploadDir = this.getUploadDir(packageName, packageVersion)
 
+    const originAdapter = createOriginAdapter()
     // 判断是否已经在OSS内存在，如已存在，则跳过
     const isExistObject = await originAdapter.isExistObject(
       path.join(uploadDir, ESMPACK_ESMD_FILE),
@@ -223,6 +224,7 @@ export class BuildService {
   }
 
   private async deleteProcessFile(uploadDir: string) {
+    const originAdapter = createOriginAdapter()
     // 无论转换是否失败，最后都删除处理中的文件
     await originAdapter.deleteFile(
       path.join(uploadDir, ESMPACK_PROCESSING_FILE),

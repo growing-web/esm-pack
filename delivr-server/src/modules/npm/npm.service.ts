@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { NotFoundException } from '@/common/exception'
 import path from 'node:path'
-import { originAdapter } from '@/originAdapter'
+import { createOriginAdapter } from '@/originAdapter'
 import { BUCKET_NPM_DIR } from '@/constants'
 import {
   bufferStream,
@@ -149,6 +149,8 @@ export class NpmService {
       filename,
     )
     let isExitsBrotliFile = false
+
+    const originAdapter = createOriginAdapter()
     if (acceptBrotli) {
       isExitsBrotliFile = await originAdapter.isExistObject(`${objectName}.br`)
       if (isExitsBrotliFile) {
