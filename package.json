@@ -20,7 +20,7 @@
   "scripts": {
     "build": "turbo run build",
     "changeset": "changeset",
-    "dev": "pnpm cross-env yarn start:dev",
+    "dev": "pnpm start:dev",
     "preinstall": "npx only-allow pnpm",
     "prepare": "pnpm husky install || true",
     "lint": "eslint .  --fix",

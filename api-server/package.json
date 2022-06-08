@@ -23,7 +23,7 @@
   "scripts": {
     "prebuild": "pnpm rimraf dist",
     "build": "pnpm cross-env NODE_ENV=production nest build",
-    "dev": "pnpm cross-env  yarn start:dev",
+    "dev": "pnpm start:dev",
     "pm2:restart": "npm run build && pnpm pm2 reload ecosystem.config.js --env production && pnpm pm2 log",
     "pm2:start": "npm run build && pnpm pm2 startOrRestart ecosystem.config.js --env production && pnpm pm2 log",
     "pm2:stop": "pnpm pm2 stop ecosystem.config.js",
