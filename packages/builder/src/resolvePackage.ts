@@ -2,7 +2,7 @@ import type { PackageJson } from 'pkg-types'
 import path from 'node:path'
 import fg from 'fast-glob'
 import fs from 'fs-extra'
-import { isObject, isString } from 'lodash'
+import _ from 'lodash'
 import { parse as cjsParse } from 'cjs-esm-exports'
 import { init as esInit, parse as esParse } from 'es-module-lexer'
 import { readPackageJSON } from 'pkg-types'
@@ -41,7 +41,7 @@ export async function resolvePackage(cachePath: string) {
 
 export async function resolveImports(pkg: Recordable) {
   const { browser } = pkg
-  if (!browser || !isObject(browser)) {
+  if (!browser || !_.isObject(browser)) {
     return {}
   }
 
@@ -80,7 +80,7 @@ export async function resolveExports(pkg: PackageJson, root: string) {
   // exports exits
   if (pkgExports !== undefined && pkgExports !== null) {
     // export include {"./*":"./*"}
-    if (isObject(pkgExports)) {
+    if (_.isObject(pkgExports)) {
       if (pkgExports['./*'] === './*') {
         const result = await addCjsFiledToExports({
           root,
@@ -91,23 +91,23 @@ export async function resolveExports(pkg: PackageJson, root: string) {
       }
       pkgExports['./package.json'] = './package.json.js'
     }
-    if (isString(pkgExports)) {
+    if (_.isString(pkgExports)) {
       pkgExports = { '.': pkgExports }
     }
 
     for (const [key, pattern] of Object.entries(pkgExports)) {
       if (
         (key.includes('*') &&
-          isString(pattern) &&
+          _.isString(pattern) &&
           (pattern as string).includes('*')) ||
         (key.endsWith('/') &&
-          isString(pattern) &&
+          _.isString(pattern) &&
           (pattern as string).endsWith('/'))
       ) {
         await addMatchFileToExports(pattern as string, pkgExports, root)
         continue
       }
-      if (isObject(pattern)) {
+      if (_.isObject(pattern)) {
         await handleObjectPattern({
           root,
           pkgExports,
@@ -265,7 +265,7 @@ async function developmentifyExports(pkgExports: Recordable, root: string) {
       !ext ||
       key.endsWith('.prod.cjs') ||
       !['.js', '.cjs'].includes(ext) ||
-      !isString(value) ||
+      !_.isString(value) ||
       key === './index.js'
     ) {
       continue
@@ -319,13 +319,13 @@ async function handlerPkgBrowser(
   pkgBrowser: Recordable | undefined,
   pkgExports: Recordable,
 ) {
-  if (!pkgBrowser || isString(pkgBrowser)) {
+  if (!pkgBrowser || _.isString(pkgBrowser)) {
     return pkgExports
   }
 
   const resultExports = pkgExports
   for (const [key, value] of Object.entries(pkgBrowser)) {
-    if (!resultExports[key] || isString(resultExports[key])) {
+    if (!resultExports[key] || _.isString(resultExports[key])) {
       resultExports[removeFileExt(key)] = resultExports[key] = {
         default: normalizeExport(key),
         browser: normalizeExport(value),
@@ -403,24 +403,24 @@ async function handleObjectPattern({
     if (IGNORE_KEYS.includes(pkey)) {
       continue
     }
-    if (isString(pval)) {
+    if (_.isString(pval)) {
       if (
         pattern.import &&
         pattern.require &&
-        isString(pattern.import) &&
-        isString(pattern.require) &&
+        _.isString(pattern.import) &&
+        _.isString(pattern.require) &&
         pattern.require !== pattern.import
       ) {
         continue
       }
 
       pkgExports[key][pkey] = await resolveMain(root, pval)
-    } else if (isObject(pval)) {
+    } else if (_.isObject(pval)) {
       for (const [ik, iv] of Object.entries(pval)) {
         if (IGNORE_KEYS.includes(ik)) {
           continue
         }
-        if (isString(iv)) {
+        if (_.isString(iv)) {
           pkgExports[key][pkey][ik] = await resolveMain(root, iv as string)
         }
       }
@@ -453,12 +453,12 @@ async function addCjsFiledToExports({
 }) {
   for (const [key, value] of Object.entries(pkgExports)) {
     // {require:'./index'}
-    if (isObject(value)) {
+    if (_.isObject(value)) {
       const requireFile = (value as any).require
       if (requireFile) {
-        if (isString(requireFile)) {
+        if (_.isString(requireFile)) {
           pkgExports[`${requireFile}!cjs`] = requireFile
-        } else if (isObject(requireFile)) {
+        } else if (_.isObject(requireFile)) {
           for (const rval of Object.values(requireFile)) {
             pkgExports[`${rval}!cjs`] = rval
           }
@@ -517,7 +517,7 @@ async function resolveMainAndModule(
     default: await resolveMain(root, pkgMain),
   }
 
-  if (isString(pkgBrowser)) {
+  if (_.isString(pkgBrowser)) {
     Object.assign(result, {
       browser: normalizeExport(pkgBrowser),
     })

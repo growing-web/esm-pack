@@ -99,6 +99,7 @@ export function rollupPluginWrapTargets(
     normalizedFileName: string,
   ): string[] | undefined {
     try {
+      // @ts-ignore
       const { stdout } = execa.execaSync(
         `node`,
         ['-p', `JSON.stringify(Object.keys(require('${normalizedFileName}')))`],

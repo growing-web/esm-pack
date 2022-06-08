@@ -12,7 +12,7 @@ import { rollupPluginWrapTargets } from './plugins/rollupPluginWrapExports'
 import { rollupPluginNodeProcessPolyfill } from './plugins/rollupPluginNodeProcessPolyfill'
 import { isDynamicEntry } from './resolvePackage'
 import { rollupBrotliPlugin, brotli } from './brotlify'
-import { enableSourceMap } from './config'
+import { BORTLFY, enableSourceMap } from './config'
 import { APP_NAME } from './constants'
 export * from './resolvePackage'
 export * from './recursion'
@@ -33,6 +33,7 @@ export interface BuildMultipleEntryOptions {
   name?: string
   sourcemap: boolean
   minify?: boolean
+  bortlfy?: boolean
 }
 
 export interface BuildSingleEntryOptions {
@@ -44,6 +45,7 @@ export interface BuildSingleEntryOptions {
   sourcemap: boolean
   devPrefix?: string
   minify?: boolean
+  bortlfy?: boolean
 }
 
 export async function build({
@@ -97,6 +99,7 @@ export async function build({
           env: 'production',
           name: pkg.name,
           sourcemap,
+          bortlfy: BORTLFY,
         }),
       ),
     ),
@@ -107,6 +110,7 @@ export async function build({
       env: 'production',
       name: pkg.name,
       sourcemap,
+      bortlfy: BORTLFY,
     }),
     Promise.all(
       devBuildFiles.map((input) =>
@@ -117,6 +121,7 @@ export async function build({
           env: 'development',
           name: pkg.name,
           sourcemap,
+          bortlfy: BORTLFY,
         }),
       ),
     ),
@@ -131,6 +136,7 @@ export async function doBuildMultipleEntry({
   name,
   sourcemap,
   minify = true,
+  bortlfy = false,
 }: BuildMultipleEntryOptions) {
   const inputKeys = Object.keys(inputMap)
   const bundle = await rollup({
@@ -214,8 +220,9 @@ export async function doBuildMultipleEntry({
       return Promise.all(promises)
     }),
   )
-
-  await Promise.all(chunks.map((chunk) => brotli(chunk, outputPath)))
+  if (bortlfy) {
+    await Promise.all(chunks.map((chunk) => brotli(chunk, outputPath)))
+  }
 }
 
 export async function doBuildSingleEntry({
@@ -227,6 +234,7 @@ export async function doBuildSingleEntry({
   sourcemap,
   minify = true,
   devPrefix = 'dev.',
+  bortlfy = false,
 }: BuildSingleEntryOptions) {
   try {
     const bundle = await rollup({
@@ -236,8 +244,8 @@ export async function doBuildSingleEntry({
       external: (id) => path.join(id) !== path.join(input) && !needExternal(id),
       plugins: [
         ...createRollupPlugins(name, minify, env),
-        rollupBrotliPlugin(),
-      ],
+        bortlfy && rollupBrotliPlugin(),
+      ].filter(Boolean),
     })
 
     fs.ensureDirSync(outputPath)
