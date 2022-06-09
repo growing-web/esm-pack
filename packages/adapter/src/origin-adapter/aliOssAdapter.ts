@@ -47,7 +47,11 @@ export class AliOssOriginAdapter<
     try {
       this.client.put(path.join(uploadDir, path.relative(cwd, file)), file, {
         // 不要覆盖已有的文件
-        headers: { 'x-oss-forbid-overwrite': true },
+        headers: {
+          'x-oss-forbid-overwrite': true,
+          'x-oss-storage-class': 'Standard',
+          'Content-Encoding': 'UTF-8',
+        },
       })
     } catch (error: any) {
       if (error.toString().includes('FileAlreadyExistsError')) {
@@ -76,6 +80,7 @@ export class AliOssOriginAdapter<
     try {
       // 填写Object完整路径。Object完整路径中不能包含Bucket名称。
       const { stream, res } = await this.client.getStream(objectName)
+
       if (res.status >= 400) {
         return null
       }
