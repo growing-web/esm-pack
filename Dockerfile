@@ -1,5 +1,5 @@
-# FROM registry-vpc.cn-hangzhou.aliyuncs.com/gaodingx/docker-base-images:node-16-onbuild-ubuntu
-FROM node:16
+FROM registry-vpc.cn-hangzhou.aliyuncs.com/gaodingx/docker-base-images:node-16-onbuild-ubuntu
+# FROM node:16
 
 MAINTAINER vben
 
