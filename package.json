@@ -31,7 +31,7 @@
     "prepublishOnly": "npm run build",
     "release": "pnpm run build && changeset publish",
     "start": "pnpm --filter @growing-web/esmpack-*-server run start",
-    "start:api": "pnpm turbo -h && ls -a ./packages/adapter && ls -a . &&pnpm run build && pnpm --filter @growing-web/esmpack-api-server run pm2-start",
+    "start:api": "pnpm --filter @growing-web/esmpack-api-server run pm2-start",
     "start:delivr": "pnpm --filter @growing-web/esmpack-delivr-server run pm2-start",
     "stub": "pnpm run prepack --filter @growing-web/esmpack-* -- --stub",
     "test": "vitest",

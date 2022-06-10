@@ -1,4 +1,5 @@
-FROM registry-vpc.cn-hangzhou.aliyuncs.com/gaodingx/docker-base-images:node-16-onbuild-ubuntu
+# FROM registry-vpc.cn-hangzhou.aliyuncs.com/gaodingx/docker-base-images:node-16-onbuild-ubuntu
+FROM node:16
 
 MAINTAINER vben
 
@@ -24,7 +25,7 @@ EXPOSE 6123
 
 CMD ['pnpm','run','build']
 # CMD ["npm","run","start-api"]
-# CMD [ "./docker-entrypoint.sh", "start_pm2", "api" ]
+CMD [ "./docker-entrypoint.sh", "start_pm2", "api" ]
 
 HEALTHCHECK  --start-period=60s --interval=15s --timeout=1s --retries=3 \
   CMD curl -f http://localhost:6123/health
