@@ -1,3 +1,3 @@
-start="npm run build && npm run start:$app"
+start="pnpm install && npm run build && npm run start:$app"
 preStop=""
 autoChdir=1
