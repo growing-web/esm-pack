@@ -5,6 +5,21 @@ MAINTAINER vben
 
 ARG NODE_ENV=production
 
+
+
+RUN set -ex \
+  && sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
+  && echo "${TIME_ZONE}" > /etc/timezone \
+  && ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime \
+  && apk add --no-cache tzdata curl coreutils tree bash \
+  && apk add python libc-dev gcc g++ make \
+  && apk add git
+
+RUN set -ex \
+  && npm config set registry https://registry.npm.taobao.org/ \
+  && npm install pnpm
+
+
 # 安装目录
 ARG APP_INSTALL_PATH=/usr/apps/esmpack-api-server
 
@@ -13,9 +28,9 @@ ENV NODE_ENV=${NODE_ENV}
 RUN mkdir -p ${APP_INSTALL_PATH}
 
 # 定位到容器工作目录
-WORKDIR ${APP_INSTALL_PATH}
-
 COPY . ${APP_INSTALL_PATH}
+
+WORKDIR ${APP_INSTALL_PATH}
 
 RUN npm i -g pnpm --registry=https://registry.npmmirror.com
 
