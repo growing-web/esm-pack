@@ -8,7 +8,6 @@ ARG NODE_ENV=production
 
 
 RUN set -ex \
-  && sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories \
   && echo "${TIME_ZONE}" > /etc/timezone \
   && ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime \
   && apk add --no-cache tzdata curl coreutils tree bash \
@@ -32,15 +31,15 @@ COPY . ${APP_INSTALL_PATH}
 
 WORKDIR ${APP_INSTALL_PATH}
 
-RUN npm i -g pnpm --registry=https://registry.npmmirror.com
+# RUN npm i -g pnpm --registry=https://registry.npmmirror.com
 
-RUN pnpm install
+# RUN pnpm install
 
-EXPOSE 6123
+# EXPOSE 6123
 
 CMD ['pnpm','run','build']
 # CMD ["npm","run","start-api"]
-CMD [ "./docker-entrypoint.sh", "start_pm2", "api" ]
+# CMD [ "./docker-entrypoint.sh", "start_pm2", "api" ]
 
 HEALTHCHECK  --start-period=60s --interval=15s --timeout=1s --retries=3 \
   CMD curl -f http://localhost:6123/health
