@@ -7,7 +7,7 @@ export NODE_ENV=${NODE_ENV-}
 
 # 全局变量
 # TODO: 这里修改成实际的项目应用列表，应用名使用空格隔开
-declare -a appArr=(api-server delivr-server)
+declare -a appArr=(api delivr)
 
 declare -a appInstallPath=${APP_INSTALL_PATH-"./"}
 
