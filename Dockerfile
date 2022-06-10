@@ -5,15 +5,6 @@ MAINTAINER vben
 
 ARG NODE_ENV=production
 
-
-
-RUN set -ex \
-  && echo "${TIME_ZONE}" > /etc/timezone \
-  && ln -sf /usr/share/zoneinfo/${TIME_ZONE} /etc/localtime \
-  && apk add --no-cache tzdata curl coreutils tree bash \
-  && apk add python libc-dev gcc g++ make \
-  && apk add git
-
 RUN set -ex \
   && npm config set registry https://registry.npm.taobao.org/ \
   && npm install pnpm
