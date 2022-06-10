@@ -6,7 +6,7 @@ MAINTAINER vben
 ARG NODE_ENV=production
 
 RUN set -ex \
-  && npm config set registry https://registry.npm.taobao.org/ \
+  && npm config set registry https://registry.npmmirror.com \
   && npm install pnpm -g
 
 
