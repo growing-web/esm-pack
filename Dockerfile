@@ -5,6 +5,8 @@ MAINTAINER vben
 
 ARG NODE_ENV=production
 
+RUN apt-get update && apt-get install tree -y
+
 RUN npm install pnpm turbo -g
 RUN npm install pnpm unbuild -g
 
