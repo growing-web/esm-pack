@@ -31,8 +31,8 @@
     "prepublishOnly": "npm run build",
     "release": "pnpm run build && changeset publish",
     "start": "pnpm --filter @growing-web/esmpack-*-server run start",
-    "start:api": "pnpm run build && pnpm --filter @growing-web/esmpack-api-server run pm2-start",
-    "start:delivr": "pnpm run build && pnpm --filter @growing-web/esmpack-delivr-server run pm2-start",
+    "start:api": "pnpm --filter @growing-web/esmpack-api-server run pm2-start",
+    "start:delivr": "pnpm --filter @growing-web/esmpack-delivr-server run pm2-start",
     "stub": "pnpm run prepack --filter @growing-web/esmpack-* -- --stub",
     "test": "vitest",
     "version": "pnpm run changeset version"
@@ -48,7 +48,7 @@
       "eslint --ext .ts"
     ]
   },
-  "devDependencies": {
+  "dependencies": {
     "@changesets/cli": "^2.22.0",
     "@commitlint/cli": "^17.0.2",
     "@commitlint/config-conventional": "^17.0.2",
@@ -74,7 +74,7 @@
     "pm2": "5.2.0",
     "prettier": "^2.6.2",
     "rimraf": "^3.0.2",
-    "turbo": "^1.2.16",
+    "turbo": "1.2.3",
     "typescript": "^4.7.3",
     "unbuild": "^0.7.4",
     "vite": "^2.9.10",

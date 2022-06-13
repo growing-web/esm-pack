@@ -63,9 +63,7 @@
     "tar-stream": "^2.2.0",
     "ua-parser-js": "^1.0.2",
     "winston": "3.7.2",
-    "winston-daily-rotate-file": "4.7.1"
-  },
-  "devDependencies": {
+    "winston-daily-rotate-file": "4.7.1",
     "@nestjs/cli": "^8.2.6",
     "@nestjs/schematics": "^8.0.11",
     "@nestjs/testing": "^8.4.6",

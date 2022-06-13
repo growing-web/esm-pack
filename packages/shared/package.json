@@ -44,9 +44,7 @@
     "semver": "^7.3.7",
     "sver": "^1.8.3",
     "tar": "^6.1.11",
-    "validate-npm-package-name": "^4.0.0"
-  },
-  "devDependencies": {
+    "validate-npm-package-name": "^4.0.0",
     "@types/npm-registry-fetch": "^8.0.4",
     "@types/request-promise": "^4.1.48",
     "@types/semver": "7.3.9",

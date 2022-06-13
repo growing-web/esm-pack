@@ -1,17 +1,16 @@
-FROM registry-vpc.cn-hangzhou.aliyuncs.com/gaodingx/docker-base-images:node-16-onbuild-ubuntu
-# FROM node:16
+# FROM registry-vpc.cn-hangzhou.aliyuncs.com/gaodingx/docker-base-images:node-16-onbuild-ubuntu
+FROM node:16
 
 MAINTAINER vben
 
 ARG NODE_ENV=production
 
-RUN set -ex \
-  && npm config set registry https://registry.npmmirror.com \
-  && npm install pnpm -g
+RUN npm install pnpm turbo -g
+RUN npm install pnpm unbuild -g
 
 
 # 安装目录
-ARG APP_INSTALL_PATH=/usr/apps/esmpack-api-server
+ARG APP_INSTALL_PATH=/esmpack-app
 
 ENV NODE_ENV=${NODE_ENV}
 
@@ -22,15 +21,17 @@ COPY . ${APP_INSTALL_PATH}
 
 WORKDIR ${APP_INSTALL_PATH}
 
-# RUN npm i -g pnpm --registry=https://registry.npmmirror.com
+RUN pnpm fetch
 
-# RUN pnpm install
+RUN pnpm install
 
-# EXPOSE 6123
+RUN pnpm run build
 
-CMD ['pnpm','run','build']
+EXPOSE 6123
+
+# CMD ['pnpm','run','build']
 # CMD ["npm","run","start-api"]
-# CMD [ "./docker-entrypoint.sh", "start_pm2", "api" ]
+CMD [ "./docker-entrypoint.sh", "start_pm2", "api" ]
 
 HEALTHCHECK  --start-period=60s --interval=15s --timeout=1s --retries=3 \
   CMD curl -f http://localhost:6123/health
