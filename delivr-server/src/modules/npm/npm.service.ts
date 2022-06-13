@@ -19,6 +19,7 @@ import {
 import tar from 'tar-stream'
 import { createBrotliCompress, constants } from 'node:zlib'
 import { Readable } from 'node:stream'
+import { Logger } from '@/plugins/index'
 // import axios from 'axios'
 
 @Injectable()
@@ -129,6 +130,17 @@ export class NpmService {
       }
       return entry
     } catch (error) {
+      Logger.info(
+        'OSS Info：' +
+          JSON.stringify({
+            region: process.env.OSS_REGION,
+            bucket: process.env.OSS_BUCKET,
+            accessKeyId: process.env.OSS_ACCESS_KEY_ID,
+            accessKeySecret: process.env.OSS_ACCESS_KEY_SECRET,
+          }),
+      )
+      Logger.info(JSON.stringify(process.env))
+      Logger.error('InternalServerErrorException：' + error)
       throw new InternalServerErrorException()
     }
   }
