@@ -6,6 +6,7 @@ import path from 'node:path'
 import { pick } from 'lodash'
 import { BasicAdapter } from './AbstractAdapter'
 import { getContentType } from '../utils/contentType'
+import { green, cyan, white } from 'picocolors'
 
 export class AliOssOriginAdapter<
   T extends Options = Options,
@@ -22,6 +23,8 @@ export class AliOssOriginAdapter<
     const files = fg.sync('**/**', { ignore, cwd, absolute: true })
 
     try {
+      console.log('ali oss upload start')
+      const startTime = new Date().getTime()
       // eslint-disable-next-line
       await Promise.allSettled(
         files.map((file) => {
@@ -35,6 +38,14 @@ export class AliOssOriginAdapter<
           )
         }),
       )
+      const duration = (new Date().getTime() - startTime) / 1000
+
+      console.log(
+        `${green(
+          `ali oss upload ${white(`${files.length}`)} files  complete`,
+        )}:  ${cyan(uploadDir)}, cost ${cyan(`${duration.toFixed(2)}s`)}`,
+      )
+      console.log('')
     } catch (error: any) {
       if (error.toString().includes('FileAlreadyExistsError')) {
         return
@@ -45,14 +56,28 @@ export class AliOssOriginAdapter<
 
   async put({ cwd, file, uploadDir = '' }: PutOptions) {
     try {
-      this.client.put(path.join(uploadDir, path.relative(cwd, file)), file, {
-        // 不要覆盖已有的文件
-        headers: {
-          'x-oss-forbid-overwrite': true,
-          'x-oss-storage-class': 'Standard',
-          'Content-Encoding': 'UTF-8',
+      const startTime = new Date().getTime()
+      await this.client.put(
+        path.join(uploadDir, path.relative(cwd, file)),
+        file,
+        {
+          // 不要覆盖已有的文件
+          headers: {
+            'x-oss-forbid-overwrite': true,
+            'x-oss-storage-class': 'Standard',
+            'Content-Encoding': 'UTF-8',
+          },
         },
-      })
+      )
+
+      const duration = (new Date().getTime() - startTime) / 1000
+
+      console.log(
+        `${green('ali oss upload complete')}:  ${cyan(uploadDir)}, cost ${cyan(
+          `${duration.toFixed(2)}s`,
+        )}`,
+      )
+      console.log('')
     } catch (error: any) {
       if (error.toString().includes('FileAlreadyExistsError')) {
         return

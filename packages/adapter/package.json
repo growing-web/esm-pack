@@ -1,6 +1,6 @@
 {
   "name": "@growing-web/esmpack-adapter",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "esmpack adapter.",
   "keywords": [
     "growing-web",
@@ -32,12 +32,13 @@
     "stub": "npm run dev"
   },
   "dependencies": {
+    "@types/ali-oss": "^6.16.3",
+    "@types/lodash": "4.14.182",
+    "@types/mime": "^2.0.3",
     "ali-oss": "^6.17.1",
     "fast-glob": "3.2.11",
     "lodash": "4.17.21",
     "mime": "^3.0.0",
-    "@types/ali-oss": "^6.16.3",
-    "@types/lodash": "4.14.182",
-    "@types/mime": "^2.0.3"
+    "picocolors": "^1.0.0"
   }
 }
