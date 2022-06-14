@@ -4,7 +4,10 @@ import { devConsoleFormat } from './format'
 import { loadEnv } from '@growing-web/esmpack-shared'
 import 'winston-daily-rotate-file'
 
-loadEnv()
+loadEnv({
+  // apollo path
+  addon: ['/app/api/.env'],
+})
 
 const { combine, colorize, label, timestamp, prettyPrint, simple, ms } = format
 

@@ -1,6 +1,6 @@
 {
   "name": "@growing-web/esmpack-shared",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "esm pack builder.",
   "keywords": [
     "growing-web",

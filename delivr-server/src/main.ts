@@ -3,7 +3,6 @@ import { AppModule } from './app.module'
 import helmet from 'helmet'
 import { ConfigService } from './config/config.service'
 import { Logger } from './plugins'
-import { loadEnv } from '@growing-web/esmpack-shared'
 import {
   ExpressAdapter,
   NestExpressApplication,
@@ -11,7 +10,6 @@ import {
 import morgan from 'morgan'
 
 async function bootstrap() {
-  loadEnv()
   const app = await NestFactory.create<NestExpressApplication>(
     AppModule,
     new ExpressAdapter(),
