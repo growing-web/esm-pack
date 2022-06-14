@@ -258,6 +258,7 @@ importers:
       fast-glob: 3.2.11
       lodash: 4.17.21
       mime: ^3.0.0
+      picocolors: ^1.0.0
     dependencies:
       '@types/ali-oss': 6.16.4
       '@types/lodash': 4.14.182
@@ -266,6 +267,7 @@ importers:
       fast-glob: 3.2.11
       lodash: 4.17.21
       mime: 3.0.0
+      picocolors: 1.0.0
 
   packages/builder:
     specifiers:
