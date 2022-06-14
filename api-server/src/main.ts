@@ -23,7 +23,6 @@ async function bootstrap() {
   if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev'))
   }
-
   app.enableCors({
     origin: (origin, cb) => {
       cb(null, true)
