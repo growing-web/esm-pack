@@ -21,5 +21,6 @@ declare namespace NodeJS {
     REDIS_KEY_PREFIX: string
     REDIS_OSS_EXPIRE: string
     REDIS_NPM_EXPIRE: string
+    REDIS_CACHE: string
   }
 }

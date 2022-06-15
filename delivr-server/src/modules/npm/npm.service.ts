@@ -62,23 +62,27 @@ export class NpmService {
     await this.validateNpmPackageName(packageName)
 
     const pkg = `${packageName}@${packageVersion}`
+    const useCache = process.env.REDIS_CACHE === 'on'
 
     // const ossKey = `oss:${pkg}:${filename}`
     const npmKey = `npm:${pkg}:${filename}`
-    const redisUtil = new RedisUtil()
 
-    try {
-      const cacheEntry =
-        // (await redisUtil.get(ossKey)) ||
-        await redisUtil.get(npmKey)
+    if (useCache) {
+      try {
+        const redisUtil = new RedisUtil()
 
-      if (cacheEntry) {
-        cacheEntry.content = Buffer.from(cacheEntry.content)
-        Logger.info(`Get from Redis cache：${pkg}`)
-        return cacheEntry
+        const cacheEntry =
+          // (await redisUtil.get(ossKey)) ||
+          await redisUtil.get(npmKey)
+
+        if (cacheEntry) {
+          cacheEntry.content = Buffer.from(cacheEntry.content)
+          Logger.info(`Get from Redis cache：${pkg}`)
+          return cacheEntry
+        }
+      } catch (error) {
+        Logger.info(`Redis storage is error.`)
       }
-    } catch (error) {
-      Logger.info(`Redis storage is error.`)
     }
 
     // 1hour
@@ -118,12 +122,15 @@ export class NpmService {
         filename,
         acceptBrotli,
       )
-      try {
-        // 只缓存 npm 源获取的
-        await redisUtil.set(npmKey, entry, randomExpire)
-        Logger.info(`Cached by Npm to Redis：${pkg}`)
-      } catch (error) {
-        Logger.info(`Redis storage is error.`)
+      if (useCache) {
+        try {
+          // 只缓存 npm 源获取的
+          const redisUtil = new RedisUtil()
+          await redisUtil.set(npmKey, entry, randomExpire)
+          Logger.info(`Cached by Npm to Redis：${pkg}`)
+        } catch (error) {
+          Logger.info(`Redis storage is error.`)
+        }
       }
     }
     // else {
