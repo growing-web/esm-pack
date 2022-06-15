@@ -13,5 +13,11 @@ declare namespace NodeJS {
     OSS_ACCESS_KEY_ID: string
     OSS_ACCESS_KEY_SECRET: string
     OSS_BUCKET: string
+
+    REDIS_HOST: string
+    REDIS_PORT: string
+    REDIS_PASSWORD: string
+    REDIS_DB: string
+    REDIS_KEY_PREFIX: string
   }
 }

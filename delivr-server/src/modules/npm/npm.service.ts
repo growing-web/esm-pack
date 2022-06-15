@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { NotFoundException } from '@/common/exception'
 import path from 'node:path'
+import { Buffer } from 'node:buffer'
 import { createOriginAdapter } from '@/originAdapter'
 import { BUCKET_NPM_DIR } from '@/constants'
 import {
@@ -20,7 +21,7 @@ import tar from 'tar-stream'
 import { createBrotliCompress, constants } from 'node:zlib'
 import { Readable } from 'node:stream'
 import { Logger } from '@/plugins/index'
-// import axios from 'axios'
+import { RedisUtil } from '@/plugins/redis'
 
 @Injectable()
 export class NpmService {
@@ -60,6 +61,36 @@ export class NpmService {
 
     await this.validateNpmPackageName(packageName)
 
+    const pkg = `${packageName}@${packageVersion}`
+
+    // const ossKey = `oss:${pkg}:${filename}`
+    const npmKey = `npm:${pkg}:${filename}`
+    const redisUtil = new RedisUtil()
+
+    try {
+      const cacheEntry =
+        // (await redisUtil.get(ossKey)) ||
+        await redisUtil.get(npmKey)
+
+      if (cacheEntry) {
+        cacheEntry.content = Buffer.from(cacheEntry.content)
+        Logger.info(`Get from Redis cache：${pkg}`)
+        return cacheEntry
+      }
+    } catch (error) {
+      Logger.info(`Redis storage is error.`)
+    }
+
+    // 1hour
+    // const ossExpire =
+    //   Number.parseInt(process.env.REDIS_OSS_EXPIRE, 10) || 60 * 60
+
+    // 1day
+    const min =
+      Number.parseInt(process.env.REDIS_NPM_EXPIRE, 10) || 24 * 60 * 60
+
+    const randomExpire = Math.round(Math.random() * (min + 5 * 60 - min)) + min
+
     let entry = await this.resolveEntry(
       packageName,
       packageVersion,
@@ -69,6 +100,14 @@ export class NpmService {
 
     // 通过 jspm generate 进行build时候，不需要进行 npm 回源处理，只访问OSS内的文件即可
     if (!isBrowser) {
+      //   if (entry) {
+      //     try {
+      //       await redisUtil.set(ossKey, entry, ossExpire)
+      //       Logger.info(`Cached by OSS to Redis：${pkg}`)
+      //     } catch (error) {
+      //       Logger.info(`Redis storage is error.`)
+      //     }
+      //   }
       return entry
     }
 
@@ -79,18 +118,22 @@ export class NpmService {
         filename,
         acceptBrotli,
       )
-
-      // TODO
-      //   if (entry && process.env.BUILD_SERVER_UPLOAD_URL) {
-      //     axios
-      //       .post(process.env.BUILD_SERVER_UPLOAD_URL, {
-      //         packageName,
-      //         packageVersion,
-      //         filename,
-      //       })
-      //       .catch(() => {})
-      //   }
+      try {
+        // 只缓存 npm 源获取的
+        await redisUtil.set(npmKey, entry, randomExpire)
+        Logger.info(`Cached by Npm to Redis：${pkg}`)
+      } catch (error) {
+        Logger.info(`Redis storage is error.`)
+      }
     }
+    // else {
+    //   try {
+    //     await redisUtil.set(ossKey, entry, ossExpire)
+    //     Logger.info(`Cached by OSS to Redis：${pkg}`)
+    //   } catch (error) {
+    //     Logger.info(`Redis storage is error.`)
+    //   }
+    // }
 
     return entry
   }
