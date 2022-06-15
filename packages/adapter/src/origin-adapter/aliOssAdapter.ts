@@ -23,7 +23,6 @@ export class AliOssOriginAdapter<
     const files = fg.sync('**/**', { ignore, cwd, absolute: true })
 
     try {
-      console.log('ali oss upload start')
       const startTime = new Date().getTime()
       // eslint-disable-next-line
       await Promise.allSettled(
@@ -56,7 +55,6 @@ export class AliOssOriginAdapter<
 
   async put({ cwd, file, uploadDir = '' }: PutOptions) {
     try {
-      const startTime = new Date().getTime()
       await this.client.put(
         path.join(uploadDir, path.relative(cwd, file)),
         file,
@@ -69,15 +67,6 @@ export class AliOssOriginAdapter<
           },
         },
       )
-
-      const duration = (new Date().getTime() - startTime) / 1000
-
-      console.log(
-        `${green('ali oss upload complete')}:  ${cyan(uploadDir)}, cost ${cyan(
-          `${duration.toFixed(2)}s`,
-        )}`,
-      )
-      console.log('')
     } catch (error: any) {
       if (error.toString().includes('FileAlreadyExistsError')) {
         return

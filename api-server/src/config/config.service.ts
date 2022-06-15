@@ -36,4 +36,20 @@ export class ConfigService {
   get throttleTtl(): number {
     return this.appConfig.throttleTtl
   }
+
+  get redisHost(): string {
+    return this.appConfig.REDIS_HOST
+  }
+  get redisPort(): number {
+    return this.appConfig.REDIS_PORT
+  }
+  get redisDb(): string {
+    return this.appConfig.REDIS_DB
+  }
+  get redisPassword(): string {
+    return this.appConfig.REDIS_PASSWORD
+  }
+  get redisKeyPrefix(): string {
+    return this.appConfig.REDIS_KEY_PREFIX
+  }
 }
