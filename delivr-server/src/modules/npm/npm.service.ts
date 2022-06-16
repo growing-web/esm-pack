@@ -10,6 +10,7 @@ import {
   getNpmMaxSatisfyingVersion,
   validateNpmPackageName,
   getPackage,
+  getPackageByUrl,
   getContentType,
   isEsmFile,
 } from '@growing-web/esmpack-shared'
@@ -48,6 +49,7 @@ export class NpmService {
 
   // ${name}@${version}
   async resolveFile(
+    pathname: string,
     packageName: string,
     packageVersion: string,
     filename: string,
@@ -116,12 +118,28 @@ export class NpmService {
     }
 
     if (!entry) {
-      entry = await this.resolveEntryForNpm(
-        packageName,
-        packageVersion,
-        filename,
-        acceptBrotli,
-      )
+      // 从 jspm 回源
+      try {
+        entry = await this.resolveEntryForJspm(pathname, filename, acceptBrotli)
+        if (!entry) {
+          // 尝试从 npm 回源
+          entry = await this.resolveEntryForNpm(
+            packageName,
+            packageVersion,
+            filename,
+            acceptBrotli,
+          )
+        }
+      } catch (error) {
+        // 尝试从 npm 回源
+        entry = await this.resolveEntryForNpm(
+          packageName,
+          packageVersion,
+          filename,
+          acceptBrotli,
+        )
+      }
+
       if (useCache) {
         try {
           // 只缓存 npm 源获取的
@@ -326,6 +344,30 @@ export class NpmService {
           resolve(foundEntry)
         })
     })
+  }
+
+  async resolveEntryForJspm(
+    url: string,
+    filename: string,
+    acceptBrotli: Boolean,
+  ) {
+    const res = await getPackageByUrl(`${process.env.JSPM_URL}/npm:${url}`)
+    const { stream, headers } = res || {}
+
+    let content = await bufferStream(stream)
+    if (acceptBrotli) {
+      content = await this.brotliCompress(filename, content)
+    }
+    return {
+      content,
+      filepath: filename,
+      header: {
+        ...headers,
+        ...(acceptBrotli
+          ? { 'Content-Encoding': 'br' }
+          : { 'Content-Length': content.length }),
+      },
+    }
   }
 
   async brotliCompress(filename: string, content: any): Promise<any> {

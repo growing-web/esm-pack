@@ -46,6 +46,7 @@ export class NpmController {
     const browser = UAParser(req.header('user-agent'))?.browser
     const isBrowser = !!browser.name
     const entry = await this.npmService.resolveFile(
+      pathname,
       packageName,
       packageVersion,
       filename,
