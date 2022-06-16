@@ -28,10 +28,10 @@ import {
   extractTarball,
   getTarballURL,
   validateNpmPackageName,
+  isEsmFile,
+  brotliCompressDir,
 } from '@growing-web/esmpack-shared'
-import { RedisLock, RedisUtil, createRedisClient } from '@/plugins/redis'
-
-// const lock = new AsyncLock()
+import { RedisLock, createRedisClient } from '@/plugins/redis'
 
 @Injectable()
 export class BuildService {
@@ -47,70 +47,37 @@ export class BuildService {
     const lockKey = `build:${packageName}@${packageVersion}`
     const redisClient = createRedisClient()
     const redisLock = new RedisLock(redisClient)
-    const redisUtil = new RedisUtil()
+    // const redisUtil = new RedisUtil()
 
     try {
-      const isProcessing = await redisUtil.get(lockKey)
+      //   const isProcessing = await redisUtil.get(lockKey)
 
-      if (isProcessing) {
+      //   if (isProcessing) {
+      //     throw new ForbiddenException(
+      //       `ESMPACK is still processing ${packageName}@${packageVersion}, this can take a few minutes!`,
+      //     )
+      //   }
+      //   await redisUtil.set(lockKey, '1', 10)
+
+      // Redis 分布式锁，防止执行相同的包构建任务
+      await redisLock.lock(lockKey, 5 * 60 * 1000, 50, 10)
+
+      await this.doBuild(packageName, packageVersion, needBuild)
+      //   await redisUtil.del(lockKey)
+    } catch (error: any) {
+      if (error.toString().includes('RedisLock')) {
         throw new ForbiddenException(
           `ESMPACK is still processing ${packageName}@${packageVersion}, this can take a few minutes!`,
         )
       }
-      await redisUtil.set(lockKey, '1')
-
-      // Redis 分布式锁，防止执行相同的包构建任务
-      await redisLock.lock(lockKey, 5 * 60 * 1000, 50, 100)
-
-      await this.doBuild(packageName, packageVersion, needBuild)
-      await redisUtil.del(lockKey)
-    } catch (error) {
-      await redisUtil.del(lockKey)
+      //   await redisUtil.del(lockKey)
       redisLock.unlock(lockKey)
       throw error
     } finally {
-      await redisUtil.del(lockKey)
+      //   await redisUtil.del(lockKey)
       redisLock.unlock(lockKey)
     }
-
-    /**
-     * Node.js 进程锁，防止同一个线程执行相同的包构建任务
-     */
-    // const lockKey = `build-${packageName}@${packageVersion}`
-    // return lock
-    //   .acquire(
-    //     lockKey,
-    //     this.doBuild.bind(this, packageName, packageVersion, needBuild),
-    //   )
-    //   .catch((err) => {
-    //     // 记录错误信息到构建目录对应包下面的 _error.json 文件
-    //     throw err
-    //   })
   }
-
-  //   async build(pathname: string | undefined, needBuild = true) {
-  //     // 确保构建文件存在
-  //     fs.ensureDirSync(ESM_DIR)
-
-  //     const { packageName, packageVersion } = await this.validatePackagePathname(
-  //       pathname,
-  //     )
-
-  //     /**
-  //      * Node.js 进程锁，防止同一个线程执行相同的包构建任务
-  //      */
-  //     const lockKey = `build-${packageName}@${packageVersion}`
-  //     return lock
-  //       .acquire(
-  //         lockKey,
-  //         this.doBuild.bind(this, packageName, packageVersion, needBuild),
-  //       )
-  //       .catch((err) => {
-  //         // 记录错误信息到构建目录对应包下面的 _error.json 文件
-  //         // outputErrorLog(err, packageName, packageVersion)
-  //         throw err
-  //       })
-  //   }
 
   async doBuild(packageName: string, packageVersion: string, needBuild = true) {
     // 检测包名或者版本号是否存在
@@ -139,39 +106,9 @@ export class BuildService {
 
     const outputPath = path.join(OUTPUT_DIR, packageName, packageVersion)
 
-    // 创建一个文件 __esmpack_processing__,表示当前 包@版本 正在构建
-    // 可能有多个服务同时构建一个包，此时需要保证只有一个任务在进行
-    // 同时上传到OSS
-    // const processingFile = path.join(outputPath, ESMPACK_PROCESSING_FILE)
-
-    // // 判断是否已经在构建中，如正在构建中，则中止
-    // const isExistProcess = await originAdapter.isExistObject(
-    //   path.join(uploadDir, ESMPACK_PROCESSING_FILE),
-    // )
-
-    // if (isExistProcess) {
-    //   throw new ForbiddenException(
-    //     `ESMPACK is still processing ${packageName}@${packageVersion}, this can take a few minutes!`,
-    //   )
-    // }
-
     // 从npm下载文件到本地缓存文件夹
-
     const sourcePath = this.getSourcePath(packageName, packageVersion)
     if (!fs.existsSync(sourcePath)) {
-      //   let packageConfig
-      //   try {
-      //     packageConfig = await getPackageConfig(packageName, packageVersion)
-      //     if (!packageConfig) {
-      //       await this.deleteProcessFile(uploadDir)
-      //       throw new Error()
-      //     }
-      //   } catch (_) {
-      //     await this.deleteProcessFile(uploadDir)
-      //     throw new NotFoundException(
-      //       `Package ${packageName}@${packageVersion} not found in the npm registry.`,
-      //     )
-      //   }
       try {
         const tarballURL = await getTarballURL(packageName, packageVersion)
 
@@ -194,21 +131,13 @@ export class BuildService {
       )
     }
 
-    // fs.outputFileSync(processingFile, ESMPACK_PROCESSING_FILE, {
-    //   encoding: 'utf-8',
-    // })
-    // await originAdapter.put({
-    //   cwd: outputPath,
-    //   uploadDir,
-    //   file: processingFile,
-    // })
-
     // HACK 处理 Node.js 模块可能存在构建问题
     if (packageName === '@jspm/core') {
       await fs.copy(sourcePath, outputPath)
       return
     }
 
+    const startTime = new Date().getTime()
     try {
       if (needBuild) {
         // 重写 package.json
@@ -222,73 +151,92 @@ export class BuildService {
         // 清空可能存在的构建输出文件
         await fs.remove(outputPath)
 
-        const entryFiles = this.getEntryFiles(packageJson, sourcePath)
-        // 执行构建
+        const buildJsFiles: string[] = []
+        const buildPkgFiles: string[] = []
+        for (const file of buildFiles) {
+          if (path.basename(file) === PACKAGE_JSON) {
+            buildPkgFiles.push(file)
+          } else {
+            buildJsFiles.push(file)
+          }
+        }
 
-        const startTime = new Date().getTime()
+        // 只有一个入口，判断是否符合es 格式，若符合，则不进行构建优化
+        let isEsm = false
 
-        await build({
-          buildFiles,
-          sourcePath,
-          outputPath,
-          entryFiles,
-        })
+        if (buildJsFiles.length === 1) {
+          const file = buildJsFiles[0]
+          isEsm = await isEsmFile(fs.readFileSync(file, { encoding: 'utf-8' }))
 
-        // 拷贝其余文件到构建输出目录
-        await Promise.all(
-          needCopyFiles.map((file) =>
-            fs.copy(
-              path.resolve(sourcePath, file),
-              path.resolve(outputPath, file),
+          // 符合 es 格式 直接拷贝
+          if (isEsm) {
+            await fs.copy(sourcePath, outputPath)
+            // 压缩 br 文件
+            await brotliCompressDir(outputPath)
+            // 构建 package.json
+            await build({
+              buildFiles: buildPkgFiles,
+              sourcePath,
+              outputPath,
+              entryFiles: [],
+            })
+          }
+        }
+
+        // 入口文件不是esm，继续执行构建
+        if (!isEsm) {
+          const entryFiles = this.getEntryFiles(packageJson, sourcePath)
+          // 执行构建
+
+          await build({
+            buildFiles,
+            sourcePath,
+            outputPath,
+            entryFiles,
+          })
+
+          // 拷贝其余文件到构建输出目录
+          await Promise.all(
+            needCopyFiles.map((file) =>
+              fs.copy(
+                path.resolve(sourcePath, file),
+                path.resolve(outputPath, file),
+              ),
             ),
-          ),
-        )
-
-        const duration = (new Date().getTime() - startTime) / 1000
-        console.log(
-          `${colors.green(`build complete`)}:  ${colors.cyan(
-            `${packageName}@${packageVersion}`,
-          )}, cost ${colors.cyan(`${duration.toFixed(2)}s`)}`,
-        )
-        console.log('')
+          )
+        }
       } else {
         await fs.copy(sourcePath, outputPath)
+        await brotliCompressDir(outputPath)
       }
 
+      const duration = (new Date().getTime() - startTime) / 1000
+      console.log(
+        `${colors.green(`build complete`)}:  ${colors.cyan(
+          `${packageName}@${packageVersion}`,
+        )}, cost ${colors.cyan(`${duration.toFixed(2)}s`)}`,
+      )
+      console.log('')
+      //  表示上传成功，后续根据该文件判断是否已经转换过
+      fs.outputFileSync(
+        path.join(outputPath, ESMPACK_ESMD_FILE),
+        ESMPACK_ESMD_FILE,
+        {
+          encoding: 'utf-8',
+        },
+      )
       //   upload oss
       await originAdapter.uploadDir({
         cwd: outputPath,
         uploadDir,
       })
 
-      //  表示上传成功，后续根据该文件判断是否已经转换过
-      const esmdFile = path.join(outputPath, ESMPACK_ESMD_FILE)
-      fs.outputFileSync(esmdFile, ESMPACK_ESMD_FILE, {
-        encoding: 'utf-8',
-      })
-      await originAdapter.put({
-        cwd: outputPath,
-        uploadDir,
-        file: esmdFile,
-      })
-
       // 清空输出目录，防止构建累计，导致文件过多
       await Promise.all([fs.remove(outputPath), fs.remove(sourcePath)])
-      // 无论转换是否失败，最后都删除处理中的文件
-      //   await this.deleteProcessFile(uploadDir)
     } catch (error: any) {
-      //   await this.deleteProcessFile(uploadDir)
       throw new InternalServerErrorException(error.toString())
     }
   }
-
-  //   private async deleteProcessFile(uploadDir: string) {
-  //     const originAdapter = createOriginAdapter()
-  //     // 无论转换是否失败，最后都删除处理中的文件
-  //     await originAdapter.deleteFile(
-  //       path.join(uploadDir, ESMPACK_PROCESSING_FILE),
-  //     )
-  //   }
 
   private async rewritePackage(cachePath: string) {
     const pkg = await resolvePackage(cachePath)

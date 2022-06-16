@@ -13,14 +13,14 @@ import {
   getPackageByUrl,
   getContentType,
   isEsmFile,
+  brotliCompress,
 } from '@growing-web/esmpack-shared'
 import {
   ForbiddenException,
   InternalServerErrorException,
 } from '@/common/exception'
 import tar from 'tar-stream'
-import { createBrotliCompress, constants } from 'node:zlib'
-import { Readable } from 'node:stream'
+
 import { Logger } from '@/plugins/index'
 import { RedisUtil } from '@/plugins/redis'
 
@@ -323,7 +323,7 @@ export class NpmService {
             }
 
             if (acceptBrotli) {
-              content = await this.brotliCompress(filename, content)
+              content = await brotliCompress(filename, content)
             }
             foundEntry = {
               content,
@@ -385,7 +385,7 @@ export class NpmService {
 
     let content = await bufferStream(stream)
     if (acceptBrotli) {
-      content = await this.brotliCompress(filename, content)
+      content = await brotliCompress(filename, content)
     }
     return {
       content,
@@ -397,37 +397,5 @@ export class NpmService {
           : { 'Content-Length': content.length }),
       },
     }
-  }
-
-  async brotliCompress(filename: string, content: any): Promise<any> {
-    const MIN_SIZE = 1000
-    const brotliCompressOptions = {
-      [constants.BROTLI_PARAM_MODE]: constants.BROTLI_MODE_GENERIC,
-      [constants.BROTLI_PARAM_QUALITY]: 9, // turn down the quality, resulting in a faster compression (default is 11)
-    }
-    return new Promise((resolve, reject) => {
-      if (MIN_SIZE && MIN_SIZE > content.size) {
-        resolve(true)
-      } else if (
-        /\.(gz|zip|xz|lz2|7z|woff|woff2|jpg|jpeg|png|webp)$/.test(filename)
-      ) {
-        return true
-      } else {
-        const stream = new Readable()
-        stream.push(content) // the string you want
-        stream.push(null)
-        const chunks: Uint8Array[] = []
-
-        stream
-          .pipe(createBrotliCompress(brotliCompressOptions))
-          .on('data', (chunk) => {
-            chunks.push(chunk)
-          })
-          .on('end', () => {
-            resolve(Buffer.concat(chunks))
-          })
-          .on('error', reject)
-      }
-    })
   }
 }

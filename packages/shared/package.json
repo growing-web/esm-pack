@@ -32,8 +32,14 @@
     "stub": "npm run dev"
   },
   "dependencies": {
+    "@types/npm-registry-fetch": "^8.0.4",
+    "@types/request-promise": "^4.1.48",
+    "@types/semver": "7.3.9",
+    "@types/tar": "^6.1.1",
+    "@types/validate-npm-package-name": "^3.0.3",
     "dotenv": "16.0.1",
     "es-module-lexer": "^0.10.5",
+    "fast-glob": "3.2.11",
     "fs-extra": "^10.1.0",
     "gunzip-maybe": "^1.4.2",
     "lru-cache": "^7.10.1",
@@ -44,11 +50,6 @@
     "semver": "^7.3.7",
     "sver": "^1.8.3",
     "tar": "^6.1.11",
-    "validate-npm-package-name": "^4.0.0",
-    "@types/npm-registry-fetch": "^8.0.4",
-    "@types/request-promise": "^4.1.48",
-    "@types/semver": "7.3.9",
-    "@types/tar": "^6.1.1",
-    "@types/validate-npm-package-name": "^3.0.3"
+    "validate-npm-package-name": "^4.0.0"
   }
 }

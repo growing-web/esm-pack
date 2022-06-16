@@ -40,24 +40,24 @@ export class BuildController {
     res.status(200).send('ok')
   }
 
-  //   /**
-  //    * build the specified package
-  //    * @param param packageName@packageVersion
-  //    * @example vue@3.0.0
-  //    * @param res ok
-  //    */
-  //   @Post('/build/upload')
-  //   async upload(
-  //     @Body()
-  //     body: { packageName: string; packageVersion: string; filename: string },
-  //     @Res() res: Response,
-  //   ) {
-  //     const { packageName, packageVersion, filename } = body
+  /**
+   * build the specified package
+   * @param param packageName@packageVersion
+   * @example vue@3.0.0
+   * @param res ok
+   */
+  @Post('/build/upload')
+  async upload(
+    @Body()
+    body: { packageName: string; packageVersion: string; filename: string },
+    @Res() res: Response,
+  ) {
+    const { packageName, packageVersion, filename } = body
 
-  //     await this.buildService.build(
-  //       path.join(`${packageName}@${packageVersion}`, filename),
-  //       false,
-  //     )
-  //     res.status(200).send('ok')
-  //   }
+    await this.buildService.build(
+      path.join(`${packageName}@${packageVersion}`, filename),
+      false,
+    )
+    res.status(200).send('ok')
+  }
 }
