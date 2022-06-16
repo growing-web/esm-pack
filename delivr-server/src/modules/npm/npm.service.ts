@@ -65,7 +65,6 @@ export class NpmService {
 
     const pkg = `${packageName}@${packageVersion}`
     const useCache = process.env.REDIS_CACHE === 'on'
-
     // const ossKey = `oss:${pkg}:${filename}`
     const npmKey = `npm:${pkg}:${filename}`
 
