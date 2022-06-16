@@ -34,7 +34,7 @@
   "dependencies": {
     "@types/npm-registry-fetch": "^8.0.4",
     "@types/request-promise": "^4.1.48",
-    "@types/semver": "7.3.9",
+    "@types/semver": "7.3.10",
     "@types/tar": "^6.1.1",
     "@types/validate-npm-package-name": "^3.0.3",
     "dotenv": "16.0.1",
