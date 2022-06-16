@@ -108,6 +108,14 @@ export class NpmService {
     }
 
     if (!entry) {
+      if (
+        !filename.endsWith('.js') &&
+        !filename.endsWith('.mjs') &&
+        !filename.endsWith('.json')
+      ) {
+        return null
+      }
+
       // 依次从 Jsdelivr,Jspm,Npm回源
       entry = await this.resolveEntries(
         packageName,
