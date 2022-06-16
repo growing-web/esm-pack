@@ -49,7 +49,6 @@ export class NpmService {
 
   // ${name}@${version}
   async resolveFile(
-    pathname: string,
     packageName: string,
     packageVersion: string,
     filename: string,
@@ -105,39 +104,17 @@ export class NpmService {
 
     // 通过 jspm generate 进行build时候，不需要进行 npm 回源处理，只访问OSS内的文件即可
     if (!isBrowser) {
-      //   if (entry) {
-      //     try {
-      //       await redisUtil.set(ossKey, entry, ossExpire)
-      //       Logger.info(`Cached by OSS to Redis：${pkg}`)
-      //     } catch (error) {
-      //       Logger.info(`Redis storage is error.`)
-      //     }
-      //   }
       return entry
     }
 
     if (!entry) {
-      // 从 jspm 回源
-      try {
-        entry = await this.resolveEntryForJspm(pathname, filename, acceptBrotli)
-        if (!entry) {
-          // 尝试从 npm 回源
-          entry = await this.resolveEntryForNpm(
-            packageName,
-            packageVersion,
-            filename,
-            acceptBrotli,
-          )
-        }
-      } catch (error) {
-        // 尝试从 npm 回源
-        entry = await this.resolveEntryForNpm(
-          packageName,
-          packageVersion,
-          filename,
-          acceptBrotli,
-        )
-      }
+      // 依次从 Jsdelivr,Jspm,Npm回源
+      entry = await this.resolveEntries(
+        packageName,
+        packageVersion,
+        filename,
+        acceptBrotli,
+      )
 
       if (useCache) {
         try {
@@ -159,6 +136,33 @@ export class NpmService {
     //   }
     // }
 
+    return entry
+  }
+  private async resolveEntries(
+    packageName: string,
+    packageVersion: string,
+    filename: string,
+    acceptBrotli: boolean,
+  ) {
+    const cdns = process.env.EXTERNAL_CDNS?.split(',') || []
+    let entry: any = {}
+
+    for (const cdn of cdns) {
+      try {
+        entry = await this[`resolveEntryFor${cdn}`](
+          packageName,
+          packageVersion,
+          filename,
+          acceptBrotli,
+        )
+        Logger.info(`resolveEntryFor${cdn} done.`)
+        if (entry) {
+          return entry
+        }
+      } catch (error: any) {
+        Logger.error(`resolveEntryFor${cdn} error：${error}`)
+      }
+    }
     return entry
   }
 
@@ -197,16 +201,6 @@ export class NpmService {
       }
       return entry
     } catch (error) {
-      Logger.info(
-        'OSS Info：' +
-          JSON.stringify({
-            region: process.env.OSS_REGION,
-            bucket: process.env.OSS_BUCKET,
-            accessKeyId: process.env.OSS_ACCESS_KEY_ID,
-            accessKeySecret: process.env.OSS_ACCESS_KEY_SECRET,
-          }),
-      )
-      Logger.info(JSON.stringify(process.env))
       Logger.error('InternalServerErrorException：' + error)
       throw new InternalServerErrorException()
     }
@@ -346,11 +340,39 @@ export class NpmService {
   }
 
   async resolveEntryForJspm(
+    packageName: string,
+    packageVersion: string,
+    filename: string,
+    acceptBrotli: Boolean,
+  ) {
+    const url = path.join(`${packageName}@${packageVersion}`, filename)
+    return await this.resolveEntryForExternal(
+      `${process.env.JSPM_URL}/npm:${url}`,
+      filename,
+      acceptBrotli,
+    )
+  }
+
+  async resolveEntryForJsdelivr(
+    packageName: string,
+    packageVersion: string,
+    filename: string,
+    acceptBrotli: Boolean,
+  ) {
+    const url = path.join(`${packageName}@${packageVersion}`, filename)
+    return await this.resolveEntryForExternal(
+      `${process.env.JSDELIVR_URL}/npm/${url}`,
+      filename,
+      acceptBrotli,
+    )
+  }
+
+  async resolveEntryForExternal(
     url: string,
     filename: string,
     acceptBrotli: Boolean,
   ) {
-    const res = await getPackageByUrl(`${process.env.JSPM_URL}/npm:${url}`)
+    const res = await getPackageByUrl(url)
     const { stream, headers } = res || {}
 
     let content = await bufferStream(stream)
