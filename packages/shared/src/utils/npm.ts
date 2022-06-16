@@ -375,3 +375,39 @@ export async function getPackage(packageName: string, version: string) {
   )
   return null
 }
+
+/**
+ * Returns a stream of the tarball'd contents of the given package.
+ */
+export async function getPackageByUrl(url: string) {
+  console.debug('Fetching url for %s', url)
+
+  const { hostname, pathname } = new URL(url)
+
+  const options = {
+    agent: agent,
+    hostname: hostname,
+    path: pathname,
+  }
+
+  const res = await get(options)
+
+  if (res.statusCode === 200) {
+    const stream = res.pipe(gunzip())
+    return {
+      stream,
+      headers: res.headers,
+    }
+  }
+
+  if (res.statusCode === 404) {
+    return null
+  }
+
+  console.error(
+    'Error fetching url for %s@%s (status: %s)',
+    url,
+    res.statusCode,
+  )
+  return null
+}

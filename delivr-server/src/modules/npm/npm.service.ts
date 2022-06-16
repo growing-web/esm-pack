@@ -10,6 +10,7 @@ import {
   getNpmMaxSatisfyingVersion,
   validateNpmPackageName,
   getPackage,
+  getPackageByUrl,
   getContentType,
   isEsmFile,
 } from '@growing-web/esmpack-shared'
@@ -63,7 +64,6 @@ export class NpmService {
 
     const pkg = `${packageName}@${packageVersion}`
     const useCache = process.env.REDIS_CACHE === 'on'
-
     // const ossKey = `oss:${pkg}:${filename}`
     const npmKey = `npm:${pkg}:${filename}`
 
@@ -104,24 +104,26 @@ export class NpmService {
 
     // 通过 jspm generate 进行build时候，不需要进行 npm 回源处理，只访问OSS内的文件即可
     if (!isBrowser) {
-      //   if (entry) {
-      //     try {
-      //       await redisUtil.set(ossKey, entry, ossExpire)
-      //       Logger.info(`Cached by OSS to Redis：${pkg}`)
-      //     } catch (error) {
-      //       Logger.info(`Redis storage is error.`)
-      //     }
-      //   }
       return entry
     }
 
     if (!entry) {
-      entry = await this.resolveEntryForNpm(
+      if (
+        !filename.endsWith('.js') &&
+        !filename.endsWith('.mjs') &&
+        !filename.endsWith('.json')
+      ) {
+        return null
+      }
+
+      // 依次从 Jsdelivr,Jspm,Npm回源
+      entry = await this.resolveEntries(
         packageName,
         packageVersion,
         filename,
         acceptBrotli,
       )
+
       if (useCache) {
         try {
           // 只缓存 npm 源获取的
@@ -142,6 +144,33 @@ export class NpmService {
     //   }
     // }
 
+    return entry
+  }
+  private async resolveEntries(
+    packageName: string,
+    packageVersion: string,
+    filename: string,
+    acceptBrotli: boolean,
+  ) {
+    const cdns = process.env.EXTERNAL_CDNS?.split(',') || []
+    let entry: any = {}
+
+    for (const cdn of cdns) {
+      try {
+        entry = await this[`resolveEntryFor${cdn}`](
+          packageName,
+          packageVersion,
+          filename,
+          acceptBrotli,
+        )
+        Logger.info(`resolveEntryFor${cdn} done.`)
+        if (entry) {
+          return entry
+        }
+      } catch (error: any) {
+        Logger.error(`resolveEntryFor${cdn} error：${error}`)
+      }
+    }
     return entry
   }
 
@@ -180,16 +209,6 @@ export class NpmService {
       }
       return entry
     } catch (error) {
-      Logger.info(
-        'OSS Info：' +
-          JSON.stringify({
-            region: process.env.OSS_REGION,
-            bucket: process.env.OSS_BUCKET,
-            accessKeyId: process.env.OSS_ACCESS_KEY_ID,
-            accessKeySecret: process.env.OSS_ACCESS_KEY_SECRET,
-          }),
-      )
-      Logger.info(JSON.stringify(process.env))
       Logger.error('InternalServerErrorException：' + error)
       throw new InternalServerErrorException()
     }
@@ -326,6 +345,58 @@ export class NpmService {
           resolve(foundEntry)
         })
     })
+  }
+
+  async resolveEntryForJspm(
+    packageName: string,
+    packageVersion: string,
+    filename: string,
+    acceptBrotli: Boolean,
+  ) {
+    const url = path.join(`${packageName}@${packageVersion}`, filename)
+    return await this.resolveEntryForExternal(
+      `${process.env.JSPM_URL}/npm:${url}`,
+      filename,
+      acceptBrotli,
+    )
+  }
+
+  async resolveEntryForJsdelivr(
+    packageName: string,
+    packageVersion: string,
+    filename: string,
+    acceptBrotli: Boolean,
+  ) {
+    const url = path.join(`${packageName}@${packageVersion}`, filename)
+    let pathname = `${process.env.JSDELIVR_URL}/npm/${url}`
+    if (!pathname.endsWith('.min.js')) {
+      pathname = pathname.replace(/\.js$/, '.min.js')
+    }
+    return await this.resolveEntryForExternal(pathname, filename, acceptBrotli)
+  }
+
+  async resolveEntryForExternal(
+    url: string,
+    filename: string,
+    acceptBrotli: Boolean,
+  ) {
+    const res = await getPackageByUrl(url)
+    const { stream, headers } = res || {}
+
+    let content = await bufferStream(stream)
+    if (acceptBrotli) {
+      content = await this.brotliCompress(filename, content)
+    }
+    return {
+      content,
+      filepath: filename,
+      header: {
+        ...headers,
+        ...(acceptBrotli
+          ? { 'Content-Encoding': 'br' }
+          : { 'Content-Length': content.length }),
+      },
+    }
   }
 
   async brotliCompress(filename: string, content: any): Promise<any> {
