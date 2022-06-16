@@ -368,11 +368,11 @@ export class NpmService {
     acceptBrotli: Boolean,
   ) {
     const url = path.join(`${packageName}@${packageVersion}`, filename)
-    return await this.resolveEntryForExternal(
-      `${process.env.JSDELIVR_URL}/npm/${url}`,
-      filename,
-      acceptBrotli,
-    )
+    let pathname = `${process.env.JSDELIVR_URL}/npm/${url}`
+    if (!pathname.endsWith('.min.js')) {
+      pathname = pathname.replace(/\.js$/, '.min.js')
+    }
+    return await this.resolveEntryForExternal(pathname, filename, acceptBrotli)
   }
 
   async resolveEntryForExternal(
