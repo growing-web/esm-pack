@@ -29,7 +29,7 @@ import {
   getTarballURL,
   validateNpmPackageName,
   isEsmFile,
-  brotliCompressDir,
+  minifyEsmFiles,
 } from '@growing-web/esmpack-shared'
 import { RedisLock, createRedisClient } from '@/plugins/redis'
 
@@ -171,8 +171,7 @@ export class BuildService {
           // 符合 es 格式 直接拷贝
           if (isEsm) {
             await fs.copy(sourcePath, outputPath)
-            // 压缩 br 文件
-            await brotliCompressDir(outputPath)
+            await minifyEsmFiles(outputPath)
             // 构建 package.json
             await build({
               buildFiles: buildPkgFiles,
@@ -207,7 +206,7 @@ export class BuildService {
         }
       } else {
         await fs.copy(sourcePath, outputPath)
-        await brotliCompressDir(outputPath)
+        await minifyEsmFiles(outputPath)
       }
 
       const duration = (new Date().getTime() - startTime) / 1000
@@ -225,13 +224,13 @@ export class BuildService {
           encoding: 'utf-8',
         },
       )
-      //   upload oss
+      // upload oss
       await originAdapter.uploadDir({
         cwd: outputPath,
         uploadDir,
       })
 
-      // 清空输出目录，防止构建累计，导致文件过多
+      //   清空输出目录，防止构建累计，导致文件过多
       await Promise.all([fs.remove(outputPath), fs.remove(sourcePath)])
     } catch (error: any) {
       throw new InternalServerErrorException(error.toString())

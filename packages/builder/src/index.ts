@@ -12,7 +12,6 @@ import { rollupPluginWrapTargets } from './plugins/rollupPluginWrapExports'
 import { rollupPluginNodeProcessPolyfill } from './plugins/rollupPluginNodeProcessPolyfill'
 import { isDynamicEntry } from './resolvePackage'
 import { rollupBrotliPlugin, brotli } from './brotlify'
-import { BORTLFY, enableSourceMap } from './config'
 import { APP_NAME } from './constants'
 export * from './resolvePackage'
 export * from './recursion'
@@ -23,6 +22,7 @@ export interface BuildOptions {
   sourcePath: string
   sourcemap?: boolean
   entryFiles?: string[]
+  brotlfy?: boolean
 }
 
 export interface BuildMultipleEntryOptions {
@@ -33,7 +33,7 @@ export interface BuildMultipleEntryOptions {
   name?: string
   sourcemap: boolean
   minify?: boolean
-  bortlfy?: boolean
+  brotlfy?: boolean
 }
 
 export interface BuildSingleEntryOptions {
@@ -45,15 +45,16 @@ export interface BuildSingleEntryOptions {
   sourcemap: boolean
   devPrefix?: string
   minify?: boolean
-  bortlfy?: boolean
+  brotlfy?: boolean
 }
 
 export async function build({
   buildFiles,
   outputPath,
   sourcePath,
-  sourcemap = enableSourceMap,
+  sourcemap = false,
   entryFiles = [],
+  brotlfy = false,
 }: BuildOptions) {
   const inputMap: Record<string, string> = {}
   const pkg = await readPackageJSON(sourcePath)
@@ -99,7 +100,7 @@ export async function build({
           env: 'production',
           name: pkg.name,
           sourcemap,
-          bortlfy: BORTLFY,
+          brotlfy: brotlfy,
         }),
       ),
     ),
@@ -110,7 +111,7 @@ export async function build({
       env: 'production',
       name: pkg.name,
       sourcemap,
-      bortlfy: BORTLFY,
+      brotlfy: brotlfy,
     }),
     Promise.all(
       devBuildFiles.map((input) =>
@@ -121,7 +122,7 @@ export async function build({
           env: 'development',
           name: pkg.name,
           sourcemap,
-          bortlfy: BORTLFY,
+          brotlfy: brotlfy,
         }),
       ),
     ),
@@ -136,7 +137,7 @@ export async function doBuildMultipleEntry({
   name,
   sourcemap,
   minify = true,
-  bortlfy = false,
+  brotlfy = false,
 }: BuildMultipleEntryOptions) {
   const inputKeys = Object.keys(inputMap)
   const bundle = await rollup({
@@ -193,7 +194,7 @@ export async function doBuildMultipleEntry({
               chunk.code,
               encoding,
             ),
-            enableSourceMap &&
+            sourcemap &&
               map &&
               fs.outputFile(
                 path.join(outputPath, `${filename}.map`),
@@ -205,7 +206,7 @@ export async function doBuildMultipleEntry({
       }
       chunks.push({ [chunk.fileName]: chunk })
 
-      if (enableSourceMap) {
+      if (sourcemap) {
         const map = (chunk as any).map?.toString()
         if (map) {
           chunks.push({
@@ -220,7 +221,7 @@ export async function doBuildMultipleEntry({
       return Promise.all(promises)
     }),
   )
-  if (bortlfy) {
+  if (brotlfy) {
     await Promise.all(chunks.map((chunk) => brotli(chunk, outputPath)))
   }
 }
@@ -234,7 +235,7 @@ export async function doBuildSingleEntry({
   sourcemap,
   minify = true,
   devPrefix = 'dev.',
-  bortlfy = false,
+  brotlfy = false,
 }: BuildSingleEntryOptions) {
   try {
     const bundle = await rollup({
@@ -244,7 +245,7 @@ export async function doBuildSingleEntry({
       external: (id) => path.join(id) !== path.join(input) && !needExternal(id),
       plugins: [
         ...createRollupPlugins(name, minify, env),
-        bortlfy && rollupBrotliPlugin(),
+        brotlfy && rollupBrotliPlugin(),
       ].filter(Boolean),
     })
 
@@ -263,7 +264,7 @@ export async function doBuildSingleEntry({
     await bundle.write({
       file,
       exports: 'named',
-      sourcemap: sourcemap === true || enableSourceMap,
+      sourcemap,
     })
   } catch (error: any) {
     throw new Error(error)

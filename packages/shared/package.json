@@ -39,6 +39,7 @@
     "@types/validate-npm-package-name": "^3.0.3",
     "dotenv": "16.0.1",
     "es-module-lexer": "^0.10.5",
+    "esbuild": "^0.14.44",
     "fast-glob": "3.2.11",
     "fs-extra": "^10.1.0",
     "gunzip-maybe": "^1.4.2",
