@@ -1,8 +1,6 @@
 import path from 'path'
 
-export const APP_VERSION = 1
-
-export const BUCKET_NPM_DIR = 'npm' + `/v${APP_VERSION}`
+export const BUCKET_NPM_DIR = 'npm' + `/${process.env.APP_VERSION}`
 
 export const ESM_DIR = path.join(process.cwd(), '.esmd')
 

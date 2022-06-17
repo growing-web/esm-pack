@@ -1,8 +1,8 @@
 import { NestFactory } from '@nestjs/core'
+import { Logger } from './plugins'
 import { AppModule } from './app.module'
 import helmet from 'helmet'
 import { ConfigService } from './config/config.service'
-import { Logger } from './plugins'
 import {
   ExpressAdapter,
   NestExpressApplication,

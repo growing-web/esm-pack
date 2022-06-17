@@ -2,9 +2,8 @@ import fs from 'node:fs'
 import { join, dirname } from 'node:path'
 import { createBrotliCompress, constants } from 'node:zlib'
 
-const COMPRESS_RE =
-  /\.(js|mjs|cjs|css|html|txt|xml|json|svg|ico|ttf|otf|eot|map)$/
-const MIN_SIZE = 1000
+const COMPRESS_RE = /\.(js|mjs|cjs|css|html|txt|xml|json)$/
+const MIN_SIZE = 2048
 
 const brotliCompressOptions = {
   [constants.BROTLI_PARAM_MODE]: constants.BROTLI_MODE_GENERIC,
