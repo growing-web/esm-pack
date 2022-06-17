@@ -13,6 +13,7 @@ import {
   getPackageByUrl,
   getContentType,
   isEsmFile,
+  brotliCompress,
 } from '@growing-web/esmpack-shared'
 import {
   ForbiddenException,
@@ -51,6 +52,7 @@ export class NpmService {
     packageName: string,
     packageVersion: string,
     filename: string,
+    acceptBrotli: boolean,
     isBrowser: boolean,
   ) {
     // FIXME 极端情况，未能复现
@@ -93,7 +95,12 @@ export class NpmService {
 
     const randomExpire = Math.round(Math.random() * (min + 5 * 60 - min)) + min
 
-    let entry = await this.resolveEntry(packageName, packageVersion, filename)
+    let entry = await this.resolveEntry(
+      packageName,
+      packageVersion,
+      filename,
+      acceptBrotli,
+    )
 
     // 通过 jspm generate 进行build时候，不需要进行 npm 回源处理，只访问OSS内的文件即可
     if (!isBrowser) {
@@ -110,7 +117,12 @@ export class NpmService {
       }
 
       // 依次从 Jsdelivr,Jspm,Npm回源
-      entry = await this.resolveEntries(packageName, packageVersion, filename)
+      entry = await this.resolveEntries(
+        packageName,
+        packageVersion,
+        filename,
+        acceptBrotli,
+      )
 
       if (useCache) {
         try {
@@ -138,6 +150,7 @@ export class NpmService {
     packageName: string,
     packageVersion: string,
     filename: string,
+    acceptBrotli: boolean,
   ) {
     const cdns = process.env.EXTERNAL_CDNS?.split(',') || []
     let entry: any = {}
@@ -148,6 +161,7 @@ export class NpmService {
           packageName,
           packageVersion,
           filename,
+          acceptBrotli,
         )
         Logger.info(`resolveEntryFor${cdn} done.`)
         if (entry) {
@@ -164,30 +178,34 @@ export class NpmService {
     packageName: string,
     packageVersion: string,
     filename: string,
+    acceptBrotli = false,
   ) {
     try {
       const originMeta = await this.getOriginMeta({
         packageName,
         packageVersion,
         filename,
+        acceptBrotli,
       })
 
       if (!originMeta) {
         return null
       }
 
-      const { originResult } = originMeta
+      const { originResult, isExitsBrotliFile } = originMeta
       if (!originResult) {
         return null
       }
       const { stream, header, filepath } = originResult
 
       const content = await bufferStream(stream)
+      const resultIsBrotli = acceptBrotli && isExitsBrotliFile
 
       const entry = {
         header,
         content,
         filepath,
+        ...(resultIsBrotli ? { 'Content-Encoding': 'br' } : {}),
       }
       return entry
     } catch (error) {
@@ -200,22 +218,32 @@ export class NpmService {
     packageName,
     packageVersion,
     filename,
+    acceptBrotli,
   }: {
     packageName: string
     packageVersion: string
     filename: string
+    acceptBrotli: boolean
   }) {
-    const objectName = path.join(
+    let objectName = path.join(
       this.getUploadDir(packageName, packageVersion),
       filename,
     )
+    let isExitsBrotliFile = false
 
     const originAdapter = createOriginAdapter()
+    if (acceptBrotli) {
+      isExitsBrotliFile = await originAdapter.isExistObject(`${objectName}.br`)
+      if (isExitsBrotliFile) {
+        objectName = `${objectName}.br`
+      }
+    }
 
     const originResult = await originAdapter.getObjectStream(objectName)
 
     return {
       originResult,
+      isExitsBrotliFile,
     }
   }
 
@@ -249,13 +277,18 @@ export class NpmService {
     packageName: string,
     packageVersion: string,
     filename: string,
+    acceptBrotli: boolean,
   ) {
     const stream = await getPackage(packageName, packageVersion)
 
-    return await this.searchEntries(stream, filename)
+    return await this.searchEntries(stream, filename, acceptBrotli)
   }
 
-  async searchEntries(stream, filename: string): Promise<any> {
+  async searchEntries(
+    stream,
+    filename: string,
+    acceptBrotli: boolean,
+  ): Promise<any> {
     // filename = /some/file/name.js or /some/dir/name
     return new Promise((resolve, reject) => {
       let foundEntry
@@ -281,7 +314,7 @@ export class NpmService {
           }
 
           try {
-            const content = await bufferStream(stream)
+            let content = await bufferStream(stream)
             if (!(await isEsmFile(content.toString()))) {
               stream.resume()
               stream.on('end', next)
@@ -289,13 +322,18 @@ export class NpmService {
               return
             }
 
+            if (acceptBrotli) {
+              content = await brotliCompress(filename, content)
+            }
             foundEntry = {
               content,
               filepath: entry.path,
               header: {
                 'Last-Modified': header.mtime.toUTCString(),
                 'Content-Type': getContentType(entry.path),
-                'Content-Length': content.length,
+                ...(acceptBrotli
+                  ? { 'Content-Encoding': 'br' }
+                  : { 'Content-Length': content.length }),
               },
             }
             next()
@@ -313,11 +351,13 @@ export class NpmService {
     packageName: string,
     packageVersion: string,
     filename: string,
+    acceptBrotli: Boolean,
   ) {
     const url = path.join(`${packageName}@${packageVersion}`, filename)
     return await this.resolveEntryForExternal(
       `${process.env.JSPM_URL}/npm:${url}`,
       filename,
+      acceptBrotli,
     )
   }
 
@@ -325,26 +365,36 @@ export class NpmService {
     packageName: string,
     packageVersion: string,
     filename: string,
+    acceptBrotli: Boolean,
   ) {
     const url = path.join(`${packageName}@${packageVersion}`, filename)
     let pathname = `${process.env.JSDELIVR_URL}/npm/${url}`
     if (!pathname.endsWith('.min.js')) {
       pathname = pathname.replace(/\.js$/, '.min.js')
     }
-    return await this.resolveEntryForExternal(pathname, filename)
+    return await this.resolveEntryForExternal(pathname, filename, acceptBrotli)
   }
 
-  async resolveEntryForExternal(url: string, filename: string) {
+  async resolveEntryForExternal(
+    url: string,
+    filename: string,
+    acceptBrotli: Boolean,
+  ) {
     const res = await getPackageByUrl(url)
     const { stream, headers } = res || {}
 
-    const content = await bufferStream(stream)
+    let content = await bufferStream(stream)
+    if (acceptBrotli) {
+      content = await brotliCompress(filename, content)
+    }
     return {
       content,
       filepath: filename,
       header: {
         ...headers,
-        'Content-Length': content.length,
+        ...(acceptBrotli
+          ? { 'Content-Encoding': 'br' }
+          : { 'Content-Length': content.length }),
       },
     }
   }
