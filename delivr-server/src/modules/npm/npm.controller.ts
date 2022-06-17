@@ -40,12 +40,16 @@ export class NpmController {
         .send(result)
     }
 
+    // const acceptEncoding = req.header('Accept-Encoding')
+    const acceptBrotli = true
+
     const browser = UAParser(req.header('user-agent'))?.browser
     const isBrowser = !!browser.name
     const entry = await this.npmService.resolveFile(
       packageName,
       packageVersion,
       filename,
+      acceptBrotli,
       isBrowser,
     )
 

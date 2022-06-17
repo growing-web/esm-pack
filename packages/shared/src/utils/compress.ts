@@ -3,7 +3,8 @@ import { Readable } from 'node:stream'
 import fs from 'node:fs'
 import fg from 'fast-glob'
 
-const MIN_SIZE = 1000
+const MIN_SIZE = 2048
+const COMPRESS_RE = /\.(js|mjs|cjs|css|html|txt|xml|json)$/
 
 const brotliCompressOptions = {
   [constants.BROTLI_PARAM_MODE]: constants.BROTLI_MODE_GENERIC,
@@ -17,10 +18,8 @@ export async function brotliCompress(
   return new Promise((resolve, reject) => {
     if (MIN_SIZE && MIN_SIZE > content.size) {
       resolve(true)
-    } else if (
-      /\.(gz|zip|xz|lz2|7z|woff|woff2|jpg|jpeg|png|webp)$/.test(filename)
-    ) {
-      return true
+    } else if (!COMPRESS_RE.test(filename)) {
+      resolve(true)
     } else {
       const stream = new Readable()
       stream.push(content) // the string you want
@@ -53,6 +52,8 @@ export async function brotliCompressDir(cwd: string) {
           return
         }
         if (MIN_SIZE && MIN_SIZE > stats.size) {
+          resolve(true)
+        } else if (!COMPRESS_RE.test(file)) {
           resolve(true)
         } else {
           fs.createReadStream(file)

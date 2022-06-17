@@ -12,6 +12,7 @@ import { rollupPluginWrapTargets } from './plugins/rollupPluginWrapExports'
 import { rollupPluginNodeProcessPolyfill } from './plugins/rollupPluginNodeProcessPolyfill'
 import { isDynamicEntry } from './resolvePackage'
 import { rollupBrotliPlugin, brotli } from './brotlify'
+import { enableSourceMap } from './config'
 import { APP_NAME } from './constants'
 export * from './resolvePackage'
 export * from './recursion'
@@ -52,9 +53,9 @@ export async function build({
   buildFiles,
   outputPath,
   sourcePath,
-  sourcemap = false,
+  sourcemap = enableSourceMap,
   entryFiles = [],
-  brotlfy = false,
+  brotlfy = true,
 }: BuildOptions) {
   const inputMap: Record<string, string> = {}
   const pkg = await readPackageJSON(sourcePath)
@@ -194,7 +195,7 @@ export async function doBuildMultipleEntry({
               chunk.code,
               encoding,
             ),
-            sourcemap &&
+            enableSourceMap &&
               map &&
               fs.outputFile(
                 path.join(outputPath, `${filename}.map`),
@@ -206,7 +207,7 @@ export async function doBuildMultipleEntry({
       }
       chunks.push({ [chunk.fileName]: chunk })
 
-      if (sourcemap) {
+      if (enableSourceMap) {
         const map = (chunk as any).map?.toString()
         if (map) {
           chunks.push({
@@ -264,7 +265,7 @@ export async function doBuildSingleEntry({
     await bundle.write({
       file,
       exports: 'named',
-      sourcemap,
+      sourcemap: sourcemap === true || enableSourceMap,
     })
   } catch (error: any) {
     throw new Error(error)
