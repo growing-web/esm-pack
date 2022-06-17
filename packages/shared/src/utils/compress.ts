@@ -63,6 +63,6 @@ export async function brotliCompressDir(cwd: string) {
       })
     })
     promises.push(promise)
-  }),
-    await Promise.all(promises)
+  })
+  await Promise.all(promises)
 }
