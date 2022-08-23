@@ -238,8 +238,10 @@ export async function doBuildSingleEntry({
   devPrefix = 'dev.',
   brotlfy = false,
 }: BuildSingleEntryOptions) {
+  let bundle
+  let file
   try {
-    const bundle = await rollup({
+    bundle = await rollup({
       input: input,
       treeshake: { moduleSideEffects: true },
       onwarn: onWarning,
@@ -252,7 +254,7 @@ export async function doBuildSingleEntry({
 
     fs.ensureDirSync(outputPath)
 
-    let file = path.join(outputPath, path.relative(sourcePath, input))
+    file = path.join(outputPath, path.relative(sourcePath, input))
     const basename = path.basename(input)
     if (basename === 'package.json') {
       file = path.join(outputPath, 'package.json.js')
@@ -268,6 +270,22 @@ export async function doBuildSingleEntry({
       sourcemap: sourcemap === true || enableSourceMap,
     })
   } catch (error: any) {
+    if (
+      bundle &&
+      file &&
+      error &&
+      error.toString() &&
+      error.toString().includes(`Invalid value for option "output.file"`)
+    ) {
+      console.log(222, error.toString())
+      await bundle.write({
+        file,
+        exports: 'named',
+        inlineDynamicImports: true,
+        sourcemap: sourcemap === true || enableSourceMap,
+      })
+      return
+    }
     throw new Error(error)
   }
 }
