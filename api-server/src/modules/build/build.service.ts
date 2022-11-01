@@ -252,6 +252,7 @@ export class BuildService {
       //   清空输出目录，防止构建累计，导致文件过多
       await Promise.all([fs.remove(outputPath), fs.remove(sourcePath)])
     } catch (error: any) {
+      console.log(error)
       throw new InternalServerErrorException(error.toString())
     }
   }
@@ -289,19 +290,32 @@ export class BuildService {
   private getEntryFiles(packageJson: PackageJson, sourcePath: string) {
     let entryFiles: string[] = []
     const pkgExports = packageJson.exports as Record<string, any>
-    const exportsEntryFiles = recursionExportsValues(pkgExports['.'])
+
+    const entryPoint = pkgExports['.']
+
+    let exportsEntryFiles: string[] = []
+    if (typeof entryPoint === 'string') {
+      exportsEntryFiles = [entryPoint]
+    } else {
+      exportsEntryFiles = recursionExportsValues(pkgExports['.'])
+    }
 
     entryFiles = exportsEntryFiles.filter((file) => {
       return !path.basename(file).startsWith('dev.')
     })
 
+    // const fields = ['module', 'main', 'unpkg', 'jsdelivr']
     const fields = ['browser', 'module', 'main', 'unpkg', 'jsdelivr']
     fields.forEach((field) => {
       const file = packageJson[field]
-      if (file) {
+      if (typeof file === 'string') {
         entryFiles.push(file)
+      } else {
+        // @ts-ignore typo
+        entryFiles.push(...Object.values(file || {}))
       }
     })
+
     entryFiles = entryFiles.map((file) => {
       return path.join(sourcePath, file)
     })
