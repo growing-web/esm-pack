@@ -27,16 +27,37 @@ export async function resolvePackage(cachePath: string) {
     return pkg
   }
 
-  const pkgExports = await resolveExports(pkg, cachePath)
+  let pkgExports = await resolveExports(pkg, cachePath)
+  pkgExports = await ignoreExports(pkg, pkgExports)
 
   const files = await resolveFiles(pkg, cachePath, pkgExports)
   pkg.exports = pkgExports
+
   pkg.files = files
 
   // pkg.imports
   Object.assign(pkg, await resolveImports(pkg))
 
   return pkg
+}
+
+/**
+ * 根据npm包内配置的参数进行忽略
+ */
+async function ignoreExports(pkg: PackageJson, pkgExports: Recordable) {
+  const ignore = pkg?.esmpack?.ignore ?? []
+  if (!ignore.length) {
+    return pkgExports
+  }
+
+  const ret: Recordable = {}
+  for (const [key, value] of Object.entries(pkgExports)) {
+    if (ignore.includes(value)) {
+      continue
+    }
+    ret[key] = value
+  }
+  return ret
 }
 
 export async function resolveImports(pkg: Recordable) {
@@ -87,6 +108,7 @@ export async function resolveExports(pkg: PackageJson, root: string) {
           pkgExports,
           cjsMainFiles,
         })
+
         return await transformResultExports(result, root)
       }
       pkgExports['./package.json'] = './package.json.js'
@@ -303,6 +325,7 @@ async function developmentifyExports(pkgExports: Recordable, root: string) {
 async function joinFilesToExports(root: string, pkgFiles: string[]) {
   const resultExports: Recordable = {}
   const getFiles = await findPkgFiles(root, pkgFiles)
+
   getFiles.forEach((file) => {
     const fileKey = normalizeExport(file)
     if (!fileKey.endsWith('.cjs.js')) {

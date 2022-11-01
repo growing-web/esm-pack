@@ -94,11 +94,16 @@ export async function extractTarball(
     const allWriteStream: any[] = []
     const dirCollector: string[] = []
 
-    request({
+    const rp = request({
       url: tarballURL,
       timeout: 60 * 1000,
     })
-      .on('error', reject)
+
+    rp.catch(() => {
+      reject()
+    })
+
+    rp.on('error', reject)
       .pipe(new tar.Parse())
       .on('entry', (entry) => {
         if (entry.type === 'Directory') {
@@ -201,7 +206,6 @@ function cleanPackageConfig(config) {
     if (!key.startsWith('_') && !packageConfigExcludeKeys.includes(key)) {
       memo[key] = config[key]
     }
-
     return memo
   }, {})
 }
@@ -214,49 +218,51 @@ async function fetchPackageConfig(packageName: string, version: string) {
     : null
 }
 
-export async function getTarballURL(packageName: string, version: string) {
-  const tarballName = isScopedPackageName(packageName)
-    ? packageName.split('/')[1]
-    : packageName
-
-  return `${process.env.NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
-}
-
 // export async function getTarballURL(packageName: string, version: string) {
-//   if (process.env.FALLBACK_MODE !== 'on') {
-//     return await _getTarballURL(packageName, version, true)
-//   }
+//   const tarballName = isScopedPackageName(packageName)
+//     ? packageName.split('/')[1]
+//     : packageName
 
-//   try {
-//     const ret = await _getTarballURL(packageName, version, false)
+//   //   https://cdn.npmmirror.com/packages/vue/2.7.13/vue-2.7.13.tgz
 
-//     if (ret) {
-//       return ret
-//     }
-//     throw new Error()
-//   } catch (error) {
-//     return await _getTarballURL(packageName, version, true)
-//   }
+//   return `${process.env.NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
 // }
+
+export async function getTarballURL(packageName: string, version: string) {
+  if (process.env.FALLBACK_MODE !== 'on') {
+    return await _getTarballURL(packageName, version, true)
+  }
+
+  try {
+    const ret = await _getTarballURL(packageName, version, false)
+
+    if (ret) {
+      return ret
+    }
+    throw new Error()
+  } catch (error) {
+    return await _getTarballURL(packageName, version, true)
+  }
+}
 
 async function _getTarballURL(
   packageName: string,
   version: string,
   fallback: boolean,
-): Promise<string> {
+): Promise<string | null> {
   const tarballName = isScopedPackageName(packageName)
     ? packageName.split('/')[1]
     : packageName
 
   if (!fallback) {
-    return await getFallbackTarballUrl(packageName, version, tarballName)
+    return await getCNFallbackTarballUrl(packageName, version, tarballName)
   }
 
-  return `${process.env.FALLBACK_NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
+  return `${process.env.NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
 }
 
-async function getFallbackTarballUrl(packageName, version, tarballName) {
-  const NPM_REGISTRY_URL = process.env.NPM_REGISTRY_URL as string
+async function getCNFallbackTarballUrl(packageName, version, tarballName) {
+  const NPM_REGISTRY_URL = process.env.CN_NPM_REGISTRY_URL as string
 
   const cacheKey =
     `${NPM_REGISTRY_URL}-${packageName}-${version}-${tarballName}` as BufferEncoding
@@ -267,7 +273,8 @@ async function getFallbackTarballUrl(packageName, version, tarballName) {
     return cacheValue === notFound ? null : JSON.parse(cacheValue)
   }
 
-  const tarballURL = `${NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
+  // # https://cdn.npmmirror.com/packages/vue/2.7.13/vue-2.7.13.tgz
+  const tarballURL = `${NPM_REGISTRY_URL}/packages/${packageName}/${version}/${packageName}-${version}.tgz`
 
   const { hostname, pathname } = new URL(tarballURL)
 
@@ -276,17 +283,21 @@ async function getFallbackTarballUrl(packageName, version, tarballName) {
     hostname: hostname,
     path: pathname,
   }
-  const res = await get(options)
-  let value: string | null = null
-  if (res.statusCode < 400) {
-    value = tarballURL
-  }
+  try {
+    const res = await get(options)
+    let value: string | null = null
+    if (res.statusCode < 400) {
+      value = tarballURL
+    }
 
-  if (value) {
-    cache.set(cacheKey, JSON.stringify(value), { ttl: oneMinute })
-  }
+    if (value) {
+      cache.set(cacheKey, JSON.stringify(value), { ttl: oneMinute })
+    }
 
-  return value
+    return value
+  } catch (error) {
+    return null
+  }
 }
 
 /**
@@ -347,6 +358,9 @@ export async function getPackage(packageName: string, version: string) {
   const tarballURL = await getTarballURL(packageName, version)
 
   console.debug('Fetching package for %s from %s', packageName, tarballURL)
+  if (!tarballURL) {
+    return null
+  }
 
   const { hostname, pathname } = new URL(tarballURL)
 

@@ -31,21 +31,28 @@ import {
   isEsmFile,
   brotliCompressDir,
   minifyEsmFiles,
+  createLogger,
 } from '@growing-web/esmpack-shared'
 import { RedisLock, createRedisClient } from '@/plugins/redis'
 
 @Injectable()
 export class BuildService {
+  private readonly logger = createLogger(BuildService.name)
   constructor() {}
 
   async build(pathname: string | undefined, needBuild = true) {
     // 确保构建文件存在
     fs.ensureDirSync(ESM_DIR)
 
-    const { packageName, packageVersion } = await this.validatePackagePathname(
-      pathname,
-    )
+    const { packageName, packageVersion } =
+      await this.validateAndParsedPackagePathname(pathname)
+
+    this.logger.debug('package:', {
+      packageName,
+      packageVersion,
+    })
     const lockKey = `build:${packageName}@${packageVersion}`
+    this.logger.debug('lockKey', lockKey)
     const redisClient = createRedisClient()
     const redisLock = new RedisLock(redisClient)
     // const redisUtil = new RedisUtil()
@@ -91,9 +98,11 @@ export class BuildService {
     // 检测包名是否规范
     await this.validateNpmPackageName(packageName)
 
+    // 获取上传的文件夹路径
     const uploadDir = this.getUploadDir(packageName, packageVersion)
 
     const originAdapter = createOriginAdapter()
+
     // 判断是否已经在OSS内存在，如已存在，则跳过
     const isExistObject = await originAdapter.isExistObject(
       path.join(uploadDir, ESMPACK_ESMD_FILE),
@@ -110,14 +119,20 @@ export class BuildService {
     // 从npm下载文件到本地缓存文件夹
     const sourcePath = this.getSourcePath(packageName, packageVersion)
     if (!fs.existsSync(sourcePath)) {
-      try {
-        const tarballURL = await getTarballURL(packageName, packageVersion)
-
-        await extractTarball(sourcePath, tarballURL)
-      } catch (error) {
+      const notFoundError = () => {
         throw new NotFoundException(
           `Package ${packageName}@${packageVersion} not found in the npm registry.`,
         )
+      }
+      try {
+        const tarballURL = await getTarballURL(packageName, packageVersion)
+        console.log('tarballURL', tarballURL)
+        if (!tarballURL) {
+          notFoundError()
+        }
+        await extractTarball(sourcePath, tarballURL!)
+      } catch (error) {
+        notFoundError()
       }
     }
 
@@ -221,13 +236,13 @@ export class BuildService {
       )
       console.log('')
       //  表示上传成功，后续根据该文件判断是否已经转换过
-      fs.outputFileSync(
-        path.join(outputPath, ESMPACK_ESMD_FILE),
-        ESMPACK_ESMD_FILE,
-        {
-          encoding: 'utf-8',
-        },
-      )
+      //   fs.outputFileSync(
+      //     path.join(outputPath, ESMPACK_ESMD_FILE),
+      //     ESMPACK_ESMD_FILE,
+      //     {
+      //       encoding: 'utf-8',
+      //     },
+      //   )
       // upload oss
       await originAdapter.uploadDir({
         cwd: outputPath,
@@ -247,7 +262,12 @@ export class BuildService {
     return pkg
   }
 
-  async validatePackagePathname(pathname?: string) {
+  /**
+   * 检查路径是否符合规范，并返回解析后的值
+   * @param pathname
+   * @returns
+   */
+  async validateAndParsedPackagePathname(pathname?: string) {
     const parsed = parsePackagePathname(pathname)
 
     if (parsed == null) {
@@ -296,10 +316,16 @@ export class BuildService {
     return entryFiles
   }
 
+  /**
+   * 获取npm源文件下载目录
+   */
   private getSourcePath(name: string, version: string, ...args: string[]) {
     return path.join(SOURCE_DIR, name, version, ...args)
   }
 
+  /**
+   * 获取oss文件上传目录
+   */
   private getUploadDir(packageName: string, packageVersion: string) {
     return `${BUCKET_NPM_DIR}/${packageName}@${packageVersion}/`
   }

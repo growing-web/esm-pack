@@ -29,7 +29,7 @@ ORIGIANL ADDED IN COMMIT 6304406e065f356aeaa623a878d02be419b316d8 (good to know 
 */
 
 export function generateProcessPolyfill(env) {
-  return `/* ESM-PACK PROCESS POLYFILL (based on https://github.com/calvinmetcalf/node-process-es6) */
+  return `
 function defaultSetTimout() {
     throw new Error('setTimeout has not been defined');
 }
