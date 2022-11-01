@@ -7,6 +7,7 @@ ARG NODE_ENV=production
 
 RUN apt-get update && apt-get install tree -y
 
+RUN npm config set registry https://registry.npmmirror.com/
 RUN npm install pnpm turbo -g
 RUN npm install pnpm unbuild -g
 
