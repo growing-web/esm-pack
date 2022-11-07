@@ -30,7 +30,9 @@ export function recursionExportsRemoveDts(
 export function recursionExportsValues(exp: Record<string, any>) {
   const files: string[] = []
   for (const value of Object.values(exp)) {
-    if (_.isString(value)) {
+    if (_.isBoolean(value)) {
+      continue
+    } else if (_.isString(value)) {
       if (!value.endsWith('d.ts')) {
         files.push(value)
       }

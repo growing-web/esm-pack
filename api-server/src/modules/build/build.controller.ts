@@ -33,10 +33,9 @@ export class BuildController {
     @Res() res: Response,
   ) {
     const { packageName, packageVersion, filename } = body
+    const pathname = path.join(`${packageName}@${packageVersion}`, filename)
 
-    await this.buildService.build(
-      path.join(`${packageName}@${packageVersion}`, filename),
-    )
+    await this.buildService.build(pathname)
     res.status(200).send('ok')
   }
 
@@ -46,18 +45,18 @@ export class BuildController {
    * @example vue@3.0.0
    * @param res ok
    */
-  @Post('/build/upload')
-  async upload(
-    @Body()
-    body: { packageName: string; packageVersion: string; filename: string },
-    @Res() res: Response,
-  ) {
-    const { packageName, packageVersion, filename } = body
+  //   @Post('/build/upload')
+  //   async upload(
+  //     @Body()
+  //     body: { packageName: string; packageVersion: string; filename: string },
+  //     @Res() res: Response,
+  //   ) {
+  //     const { packageName, packageVersion, filename } = body
 
-    await this.buildService.build(
-      path.join(`${packageName}@${packageVersion}`, filename),
-      false,
-    )
-    res.status(200).send('ok')
-  }
+  //     await this.buildService.build(
+  //       path.join(`${packageName}@${packageVersion}`, filename),
+  //       false,
+  //     )
+  //     res.status(200).send('ok')
+  //   }
 }

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { PackageJson, writePackageJSON } from 'pkg-types'
+import { PackageJson, writePackageJSON, readPackageJSON } from 'pkg-types'
 import { createOriginAdapter } from '@/originAdapter'
 import fs from 'fs-extra'
 import path from 'node:path'
@@ -31,21 +31,42 @@ import {
   isEsmFile,
   brotliCompressDir,
   minifyEsmFiles,
+  createLogger,
+  isInternalScope,
+  semver,
+  LruCache,
 } from '@growing-web/esmpack-shared'
 import { RedisLock, createRedisClient } from '@/plugins/redis'
+import axios from 'axios'
+
+const oneMegabyte = 1024 * 1024
+const oneSecond = 1000
+const oneMinute = oneSecond * 60
+
+const cache = new LruCache<BufferEncoding, any>({
+  maxSize: oneMegabyte * 40,
+  sizeCalculation: Buffer.byteLength,
+  ttl: oneMinute * 60 * 12,
+})
 
 @Injectable()
 export class BuildService {
+  private readonly logger = createLogger(BuildService.name)
   constructor() {}
 
   async build(pathname: string | undefined, needBuild = true) {
     // 确保构建文件存在
     fs.ensureDirSync(ESM_DIR)
 
-    const { packageName, packageVersion } = await this.validatePackagePathname(
-      pathname,
-    )
+    const { packageName, packageVersion } =
+      await this.validateAndParsedPackagePathname(pathname)
+
+    this.logger.debug('package:', {
+      packageName,
+      packageVersion,
+    })
     const lockKey = `build:${packageName}@${packageVersion}`
+    this.logger.debug('lockKey', lockKey)
     const redisClient = createRedisClient()
     const redisLock = new RedisLock(redisClient)
     // const redisUtil = new RedisUtil()
@@ -61,21 +82,18 @@ export class BuildService {
       //   await redisUtil.set(lockKey, '1', 10)
 
       // Redis 分布式锁，防止执行相同的包构建任务
-      await redisLock.lock(lockKey, 5 * 60 * 1000, 50, 10)
+      await redisLock.lock(lockKey, 60 * 1000, 50, 10)
 
       await this.doBuild(packageName, packageVersion, needBuild)
-      //   await redisUtil.del(lockKey)
     } catch (error: any) {
       if (error.toString().includes('RedisLock')) {
         throw new ForbiddenException(
           `ESMPACK is still processing ${packageName}@${packageVersion}, this can take a few minutes!`,
         )
       }
-      //   await redisUtil.del(lockKey)
       redisLock.unlock(lockKey)
       throw error
     } finally {
-      //   await redisUtil.del(lockKey)
       redisLock.unlock(lockKey)
     }
   }
@@ -91,9 +109,11 @@ export class BuildService {
     // 检测包名是否规范
     await this.validateNpmPackageName(packageName)
 
+    // 获取上传的文件夹路径
     const uploadDir = this.getUploadDir(packageName, packageVersion)
 
     const originAdapter = createOriginAdapter()
+
     // 判断是否已经在OSS内存在，如已存在，则跳过
     const isExistObject = await originAdapter.isExistObject(
       path.join(uploadDir, ESMPACK_ESMD_FILE),
@@ -110,14 +130,26 @@ export class BuildService {
     // 从npm下载文件到本地缓存文件夹
     const sourcePath = this.getSourcePath(packageName, packageVersion)
     if (!fs.existsSync(sourcePath)) {
-      try {
-        const tarballURL = await getTarballURL(packageName, packageVersion)
-
-        await extractTarball(sourcePath, tarballURL)
-      } catch (error) {
+      const notFoundError = () => {
         throw new NotFoundException(
           `Package ${packageName}@${packageVersion} not found in the npm registry.`,
         )
+      }
+      try {
+        const tarballURL = await getTarballURL(packageName, packageVersion)
+        console.log('tarballURL', tarballURL)
+        if (!tarballURL) {
+          notFoundError()
+        }
+
+        const headers = isInternalScope(packageName)
+          ? {
+              Authorization: `Bearer ${process.env.NPM_TOKEN}`,
+            }
+          : {}
+        await extractTarball(sourcePath, tarballURL!, headers)
+      } catch (error) {
+        notFoundError()
       }
     }
 
@@ -138,12 +170,15 @@ export class BuildService {
       return
     }
 
+    // 重写一些匹配的包
+    await this.overridesInfo(sourcePath)
+
     const startTime = new Date().getTime()
+    // 重写 package.json
+    const packageJson = await this.rewritePackage(sourcePath)
+
     try {
       if (needBuild) {
-        // 重写 package.json
-        const packageJson = await this.rewritePackage(sourcePath)
-
         const { buildFiles, needCopyFiles } = await this.getFiles(
           sourcePath,
           packageJson,
@@ -162,50 +197,62 @@ export class BuildService {
           }
         }
 
-        // 只有一个入口，判断是否符合es 格式，若符合，则不进行构建优化
-        let isEsm = false
-
-        if (buildJsFiles.length === 1) {
-          const file = buildJsFiles[0]
-          isEsm = await isEsmFile(fs.readFileSync(file, { encoding: 'utf-8' }))
-
-          // 符合 es 格式 直接拷贝
-          if (isEsm) {
-            await fs.copy(sourcePath, outputPath)
-            await minifyEsmFiles(outputPath)
-            // 压缩 br 文件
-            await brotliCompressDir(outputPath)
-            // 构建 package.json
-            await build({
-              buildFiles: buildPkgFiles,
-              sourcePath,
-              outputPath,
-              entryFiles: [],
-            })
-          }
-        }
-
-        // 入口文件不是esm，继续执行构建
-        if (!isEsm) {
-          const entryFiles = this.getEntryFiles(packageJson, sourcePath)
-          // 执行构建
-
+        const esmBuild = async () => {
+          await fs.copy(sourcePath, outputPath)
+          await minifyEsmFiles(outputPath)
+          // 压缩 br 文件
+          await brotliCompressDir(outputPath)
+          // 构建 package.json
           await build({
-            buildFiles,
+            buildFiles: buildPkgFiles,
             sourcePath,
             outputPath,
-            entryFiles,
+            entryFiles: [],
           })
+        }
 
-          // 拷贝其余文件到构建输出目录
-          await Promise.all(
-            needCopyFiles.map((file) =>
-              fs.copy(
-                path.resolve(sourcePath, file),
-                path.resolve(outputPath, file),
+        // package.json内 如果有 esmpack字段
+        // 且 esmd=true，则表示改包已经符合esm规范，不需要进行构建，直接上传
+        if (packageJson?.esmpack?.esmd) {
+          await esmBuild()
+        } else {
+          // 只有一个入口，判断是否符合es 格式，若符合，则不进行构建优化
+          let isEsm = false
+
+          if (buildJsFiles.length === 1) {
+            const file = buildJsFiles[0]
+            isEsm = await isEsmFile(
+              fs.readFileSync(file, { encoding: 'utf-8' }),
+            )
+
+            // 符合 es 格式 直接拷贝
+            if (isEsm) {
+              await esmBuild()
+            }
+          }
+
+          // 入口文件不是esm，继续执行构建
+          if (!isEsm) {
+            const entryFiles = this.getEntryFiles(packageJson, sourcePath)
+            // 执行构建
+
+            await build({
+              buildFiles,
+              sourcePath,
+              outputPath,
+              entryFiles,
+            })
+
+            // 拷贝其余文件到构建输出目录
+            await Promise.all(
+              needCopyFiles.map((file) =>
+                fs.copy(
+                  path.resolve(sourcePath, file),
+                  path.resolve(outputPath, file),
+                ),
               ),
-            ),
-          )
+            )
+          }
         }
       } else {
         await fs.copy(sourcePath, outputPath)
@@ -220,23 +267,17 @@ export class BuildService {
         )}, cost ${colors.cyan(`${duration.toFixed(2)}s`)}`,
       )
       console.log('')
-      //  表示上传成功，后续根据该文件判断是否已经转换过
-      fs.outputFileSync(
-        path.join(outputPath, ESMPACK_ESMD_FILE),
-        ESMPACK_ESMD_FILE,
-        {
-          encoding: 'utf-8',
-        },
-      )
+
       // upload oss
       await originAdapter.uploadDir({
         cwd: outputPath,
         uploadDir,
       })
 
-      //   清空输出目录，防止构建累计，导致文件过多
+      // 清空输出目录，防止构建累计，导致文件过多
       await Promise.all([fs.remove(outputPath), fs.remove(sourcePath)])
     } catch (error: any) {
+      console.log(error)
       throw new InternalServerErrorException(error.toString())
     }
   }
@@ -247,7 +288,12 @@ export class BuildService {
     return pkg
   }
 
-  async validatePackagePathname(pathname?: string) {
+  /**
+   * 检查路径是否符合规范，并返回解析后的值
+   * @param pathname
+   * @returns
+   */
+  async validateAndParsedPackagePathname(pathname?: string) {
     const parsed = parsePackagePathname(pathname)
 
     if (parsed == null) {
@@ -256,6 +302,11 @@ export class BuildService {
     return parsed
   }
 
+  /**
+   * 检查路径是否符合规范
+   * @param pathname
+   * @returns
+   */
   async validateNpmPackageName(packageName: string) {
     const reason = await validateNpmPackageName(packageName)
 
@@ -269,19 +320,34 @@ export class BuildService {
   private getEntryFiles(packageJson: PackageJson, sourcePath: string) {
     let entryFiles: string[] = []
     const pkgExports = packageJson.exports as Record<string, any>
-    const exportsEntryFiles = recursionExportsValues(pkgExports['.'])
+
+    const entryPoint = pkgExports['.']
+
+    let exportsEntryFiles: string[] = []
+    if (typeof entryPoint === 'string') {
+      exportsEntryFiles = [entryPoint]
+    } else {
+      exportsEntryFiles = recursionExportsValues(pkgExports['.'])
+    }
 
     entryFiles = exportsEntryFiles.filter((file) => {
       return !path.basename(file).startsWith('dev.')
     })
 
+    // const fields = ['module', 'main', 'unpkg', 'jsdelivr']
     const fields = ['browser', 'module', 'main', 'unpkg', 'jsdelivr']
     fields.forEach((field) => {
       const file = packageJson[field]
-      if (file) {
+      if (typeof file === 'string') {
         entryFiles.push(file)
+      } else {
+        // @ts-ignore typo
+        entryFiles.push(...Object.values(file || {}))
       }
     })
+
+    entryFiles = entryFiles.filter((file) => typeof file === 'string')
+
     entryFiles = entryFiles.map((file) => {
       return path.join(sourcePath, file)
     })
@@ -296,10 +362,16 @@ export class BuildService {
     return entryFiles
   }
 
+  /**
+   * 获取npm源文件下载目录
+   */
   private getSourcePath(name: string, version: string, ...args: string[]) {
     return path.join(SOURCE_DIR, name, version, ...args)
   }
 
+  /**
+   * 获取oss文件上传目录
+   */
   private getUploadDir(packageName: string, packageVersion: string) {
     return `${BUCKET_NPM_DIR}/${packageName}@${packageVersion}/`
   }
@@ -351,5 +423,78 @@ export class BuildService {
     }
 
     return { buildFiles, needCopyFiles }
+  }
+
+  private async overridesInfo(sourcePath: string) {
+    const json = await readPackageJSON(sourcePath)
+    const packageName = json.name
+    const packageVersion = json.version
+
+    const url = process.env.OVERRIDES_JSON_URL
+    if (!url || !packageName || !packageVersion) {
+      return {}
+    }
+    try {
+      const cacheKey = url as any
+      const cacheValue = cache.get(cacheKey)
+
+      let overrides: any
+      if (cacheValue !== null && cacheValue !== undefined) {
+        overrides = JSON.parse(cacheValue)
+      } else {
+        const overridesJson = await axios(url)
+        overrides = overridesJson.data?.[packageName]?.overrides
+        if (overrides) {
+          cache.set(cacheKey, JSON.stringify(overrides), { ttl: oneMinute })
+        }
+      }
+      if (!overrides) {
+        return {}
+      }
+
+      let matchRange: any = null
+
+      for (const override of overrides) {
+        if (matchRange) {
+          continue
+        }
+        if (semver.satisfies(packageVersion, override.range)) {
+          matchRange = override
+        }
+      }
+
+      const overridesPackage = matchRange?.package
+      if (!overridesPackage) {
+        return {}
+      }
+
+      //   只允许覆盖 exports、files、main、module
+      if (overridesPackage?.exports) {
+        json.exports = Object.assign(
+          json?.exports ?? {},
+          overridesPackage?.exports ?? {},
+        )
+      }
+
+      if (overridesPackage.files) {
+        json.files = [
+          ...(json?.files ?? []),
+          ...(overridesPackage?.files ?? []),
+        ]
+      }
+
+      if (overridesPackage.main) {
+        json.main = overridesPackage?.main
+      }
+
+      if (overridesPackage.module) {
+        json.module = overridesPackage?.module
+      }
+
+      await writePackageJSON(path.join(sourcePath, PACKAGE_JSON), json)
+      return json
+    } catch (error) {
+      return {}
+    }
   }
 }

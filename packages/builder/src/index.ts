@@ -1,7 +1,7 @@
 import nodePolyfills from 'rollup-plugin-node-polyfills'
 import commonjs from '@rollup/plugin-commonjs'
 import resolve from '@rollup/plugin-node-resolve'
-import esbuild from 'rollup-plugin-esbuild'
+import _esbuild from 'rollup-plugin-esbuild'
 import rollupJSONPlugin from '@rollup/plugin-json'
 import path from 'node:path'
 import fs from 'fs-extra'
@@ -16,6 +16,8 @@ import { enableSourceMap } from './config'
 import { APP_NAME } from './constants'
 export * from './resolvePackage'
 export * from './recursion'
+
+const esbuild = ((_esbuild as any)?.default ?? _esbuild) as typeof _esbuild
 
 export interface BuildOptions {
   buildFiles: string[]
@@ -130,7 +132,7 @@ export async function build({
   ])
 }
 
-export async function doBuildMultipleEntry({
+async function doBuildMultipleEntry({
   inputMap,
   sourcePath,
   outputPath,
@@ -227,7 +229,7 @@ export async function doBuildMultipleEntry({
   }
 }
 
-export async function doBuildSingleEntry({
+async function doBuildSingleEntry({
   input,
   sourcePath,
   outputPath,
@@ -238,8 +240,10 @@ export async function doBuildSingleEntry({
   devPrefix = 'dev.',
   brotlfy = false,
 }: BuildSingleEntryOptions) {
+  let bundle
+  let file
   try {
-    const bundle = await rollup({
+    bundle = await rollup({
       input: input,
       treeshake: { moduleSideEffects: true },
       onwarn: onWarning,
@@ -252,7 +256,7 @@ export async function doBuildSingleEntry({
 
     fs.ensureDirSync(outputPath)
 
-    let file = path.join(outputPath, path.relative(sourcePath, input))
+    file = path.join(outputPath, path.relative(sourcePath, input))
     const basename = path.basename(input)
     if (basename === 'package.json') {
       file = path.join(outputPath, 'package.json.js')
@@ -268,6 +272,21 @@ export async function doBuildSingleEntry({
       sourcemap: sourcemap === true || enableSourceMap,
     })
   } catch (error: any) {
+    if (
+      bundle &&
+      file &&
+      error &&
+      error.toString() &&
+      error.toString().includes(`Invalid value for option "output.file"`)
+    ) {
+      await bundle.write({
+        file,
+        exports: 'named',
+        inlineDynamicImports: true,
+        sourcemap: sourcemap === true || enableSourceMap,
+      })
+      return
+    }
     throw new Error(error)
   }
 }
@@ -293,6 +312,7 @@ function createRollupPlugins(name: string | undefined, minify, env: string) {
     }),
     rollupPluginWrapTargets(false, name),
     esbuild({
+      legalComments: 'none',
       minify: minify,
       define: {
         'process.env.NODE_ENV': JSON.stringify(env),
@@ -303,6 +323,7 @@ function createRollupPlugins(name: string | undefined, minify, env: string) {
       NODE_ENV: env,
     }),
     (nodePolyfills as any)(),
+
     //   rollupUrlReplacePlugin(),
   ].filter(Boolean)
 }
@@ -327,4 +348,14 @@ function onWarning(warning, handler) {
     return
   }
   handler(warning)
+}
+
+export async function doBuild(
+  options: BuildMultipleEntryOptions | BuildSingleEntryOptions,
+) {
+  if ((options as BuildSingleEntryOptions).input) {
+    await doBuildSingleEntry(options as BuildSingleEntryOptions)
+  } else if ((options as BuildMultipleEntryOptions).inputMap) {
+    await doBuildMultipleEntry(options as BuildMultipleEntryOptions)
+  }
 }

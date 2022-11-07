@@ -7,3 +7,9 @@ export * from './utils/maxSatisfyingVersion'
 export * from './utils/contentType'
 export * from './utils/esm'
 export * from './utils/compress'
+export * from './logger'
+
+import semver from 'semver'
+import LruCache from 'lru-cache'
+
+export { semver, LruCache }

@@ -4,6 +4,11 @@ import { getVersionsAndTags } from './npm'
 const PACKAGE_RE =
   /^((?:@[^/\\%@]+\/)?[^./\\%@][^/\\%@]*)@?([^\\/]+)?(\/.*)?(\/.*)?$/
 
+/**
+ * 根据路径解析npm包
+ * @param pathname
+ * @returns
+ */
 export function parsePackagePathname(pathname?: string) {
   if (!pathname) {
     return null

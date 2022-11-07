@@ -10,6 +10,4 @@ export const OUTPUT_DIR = path.join(ESM_DIR, 'builds')
 
 export const PACKAGE_JSON = 'package.json'
 
-export const ESMPACK_PROCESSING_FILE = '__ESMPACK_PROCESSING__'
-
-export const ESMPACK_ESMD_FILE = '__ESMPACK_ESMD__'
+export const ESMPACK_ESMD_FILE = 'package.json.js'

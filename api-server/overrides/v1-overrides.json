@@ -1,0 +1,26 @@
+{
+  "axios": {
+    "overrides": [
+      {
+        "range": "1.x",
+        "package": {
+          "main": "./dist/axios.min.js",
+          "exports": {
+            ".": "./dist/axios.min.js"
+          },
+          "files": ["dist/axios.min.js"]
+        }
+      },
+      {
+        "range": "0.x",
+        "package": {
+          "main": "./dist/axios.js",
+          "exports": {
+            ".": "./dist/axios.js"
+          },
+          "files": ["dist/axios.js"]
+        }
+      }
+    ]
+  }
+}

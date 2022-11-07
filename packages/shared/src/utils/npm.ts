@@ -32,7 +32,7 @@ const packageConfigExcludeKeys = [
 const cache = new LRUCache<BufferEncoding, any>({
   maxSize: oneMegabyte * 40,
   sizeCalculation: Buffer.byteLength,
-  ttl: oneSecond,
+  ttl: oneMinute,
 })
 
 const agent = new https.Agent({
@@ -88,17 +88,24 @@ export function getNpmTarball(
 export async function extractTarball(
   destDir: string,
   tarballURL: string,
+  headers: any = {},
 ): Promise<string[]> {
   return new Promise((resolve, reject) => {
     const allFiles: string[] = []
     const allWriteStream: any[] = []
     const dirCollector: string[] = []
 
-    request({
+    const rp = request({
       url: tarballURL,
       timeout: 60 * 1000,
+      headers: headers,
     })
-      .on('error', reject)
+
+    rp.catch((e) => {
+      reject(e)
+    })
+
+    rp.on('error', reject)
       .pipe(new tar.Parse())
       .on('entry', (entry) => {
         if (entry.type === 'Directory') {
@@ -201,7 +208,6 @@ function cleanPackageConfig(config) {
     if (!key.startsWith('_') && !packageConfigExcludeKeys.includes(key)) {
       memo[key] = config[key]
     }
-
     return memo
   }, {})
 }
@@ -214,49 +220,67 @@ async function fetchPackageConfig(packageName: string, version: string) {
     : null
 }
 
-export async function getTarballURL(packageName: string, version: string) {
-  const tarballName = isScopedPackageName(packageName)
-    ? packageName.split('/')[1]
-    : packageName
-
-  return `${process.env.NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
-}
-
 // export async function getTarballURL(packageName: string, version: string) {
-//   if (process.env.FALLBACK_MODE !== 'on') {
-//     return await _getTarballURL(packageName, version, true)
-//   }
+//   const tarballName = isScopedPackageName(packageName)
+//     ? packageName.split('/')[1]
+//     : packageName
 
-//   try {
-//     const ret = await _getTarballURL(packageName, version, false)
+//   //   https://cdn.npmmirror.com/packages/vue/2.7.13/vue-2.7.13.tgz
 
-//     if (ret) {
-//       return ret
-//     }
-//     throw new Error()
-//   } catch (error) {
-//     return await _getTarballURL(packageName, version, true)
-//   }
+//   return `${process.env.NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
 // }
+
+export async function getTarballURL(packageName: string, version: string) {
+  // 内网包走内网流程
+  if (isInternalScope(packageName)) {
+    return getGdTarballURL(packageName, version)
+  }
+
+  if (process.env.FALLBACK_MODE !== 'on') {
+    return await _getTarballURL(packageName, version, true)
+  }
+
+  try {
+    const ret = await _getTarballURL(packageName, version, false)
+
+    if (ret) {
+      return ret
+    }
+    throw new Error()
+  } catch (error) {
+    return await _getTarballURL(packageName, version, true)
+  }
+}
 
 async function _getTarballURL(
   packageName: string,
   version: string,
   fallback: boolean,
-): Promise<string> {
+): Promise<string | null> {
   const tarballName = isScopedPackageName(packageName)
     ? packageName.split('/')[1]
     : packageName
 
   if (!fallback) {
-    return await getFallbackTarballUrl(packageName, version, tarballName)
+    return await getCNFallbackTarballUrl(packageName, version, tarballName)
   }
 
-  return `${process.env.FALLBACK_NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
+  return `${process.env.NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
 }
 
-async function getFallbackTarballUrl(packageName, version, tarballName) {
-  const NPM_REGISTRY_URL = process.env.NPM_REGISTRY_URL as string
+async function getGdTarballURL(packageName: string, version: string) {
+  // # http://registry-npm.gaoding.com/@gaoding/access-controller/download/@gaoding/access-controller-0.0.2.tgz
+
+  const tarballURL = `${process.env.GD_NPM_REGISTRY_URL}/${packageName}/download/${packageName}-${version}.tgz`
+  return tarballURL
+}
+
+async function getCNFallbackTarballUrl(
+  packageName: string,
+  version: string,
+  tarballName: string,
+) {
+  const NPM_REGISTRY_URL = process.env.CN_NPM_REGISTRY_URL as string
 
   const cacheKey =
     `${NPM_REGISTRY_URL}-${packageName}-${version}-${tarballName}` as BufferEncoding
@@ -267,7 +291,13 @@ async function getFallbackTarballUrl(packageName, version, tarballName) {
     return cacheValue === notFound ? null : JSON.parse(cacheValue)
   }
 
-  const tarballURL = `${NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
+  // # https://cdn.npmmirror.com/packages/vue/2.7.13/vue-2.7.13.tgz
+
+  const name = packageName?.startsWith('@')
+    ? packageName.split('/')?.[1]
+    : packageName
+
+  const tarballURL = `${NPM_REGISTRY_URL}/packages/${packageName}/${version}/${name}-${version}.tgz`
 
   const { hostname, pathname } = new URL(tarballURL)
 
@@ -276,17 +306,21 @@ async function getFallbackTarballUrl(packageName, version, tarballName) {
     hostname: hostname,
     path: pathname,
   }
-  const res = await get(options)
-  let value: string | null = null
-  if (res.statusCode < 400) {
-    value = tarballURL
-  }
+  try {
+    const res = await get(options)
+    let value: string | null = null
+    if (res.statusCode < 400) {
+      value = tarballURL
+    }
 
-  if (value) {
-    cache.set(cacheKey, JSON.stringify(value), { ttl: oneMinute })
-  }
+    if (value) {
+      cache.set(cacheKey, JSON.stringify(value), { ttl: oneMinute })
+    }
 
-  return value
+    return value
+  } catch (error) {
+    return null
+  }
 }
 
 /**
@@ -347,6 +381,9 @@ export async function getPackage(packageName: string, version: string) {
   const tarballURL = await getTarballURL(packageName, version)
 
   console.debug('Fetching package for %s from %s', packageName, tarballURL)
+  if (!tarballURL) {
+    return null
+  }
 
   const { hostname, pathname } = new URL(tarballURL)
 
@@ -410,4 +447,25 @@ export async function getPackageByUrl(url: string) {
     res.statusCode,
   )
   return null
+}
+
+/**
+ * 内网包
+ * @returns
+ */
+export function getInternalNpmScopes() {
+  const scopeConfig = process.env.INTERNAL_SCOPES ?? ''
+  const scopes = scopeConfig.split(',')
+  return scopes.filter(Boolean)
+}
+
+export function isInternalScope(packageName: string) {
+  const scopes = getInternalNpmScopes()
+  if (!packageName?.startsWith('@')) {
+    return false
+  }
+
+  const scope = packageName.split('/')?.[0]
+
+  return scopes?.includes(scope)
 }

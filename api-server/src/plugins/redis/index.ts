@@ -1,7 +1,12 @@
 import type { Redis as RedisType } from 'ioredis'
 import Redis from 'ioredis'
 
+let _client: RedisType
+
 export function createRedisClient(): RedisType {
+  if (_client) {
+    return _client
+  }
   const client = new Redis({
     host: process.env.REDIS_HOST,
     port: parseInt(process.env.REDIS_PORT!, 10) || 6379,
@@ -10,6 +15,7 @@ export function createRedisClient(): RedisType {
     keyPrefix: process.env.REDIS_KEY_PREFIX,
   })
 
+  _client = client
   return client
 }
 
