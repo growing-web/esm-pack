@@ -274,7 +274,12 @@ async function getCNFallbackTarballUrl(packageName, version, tarballName) {
   }
 
   // # https://cdn.npmmirror.com/packages/vue/2.7.13/vue-2.7.13.tgz
-  const tarballURL = `${NPM_REGISTRY_URL}/packages/${packageName}/${version}/${packageName}-${version}.tgz`
+
+  const name = packageName?.startsWith('@')
+    ? packageName.split('/')?.[1]
+    : packageName
+
+  const tarballURL = `${NPM_REGISTRY_URL}/packages/${packageName}/${version}/${name}-${version}.tgz`
 
   const { hostname, pathname } = new URL(tarballURL)
 

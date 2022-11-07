@@ -151,11 +151,11 @@ export class BuildService {
     }
 
     const startTime = new Date().getTime()
+    // 重写 package.json
+    const packageJson = await this.rewritePackage(sourcePath)
+
     try {
       if (needBuild) {
-        // 重写 package.json
-        const packageJson = await this.rewritePackage(sourcePath)
-
         const { buildFiles, needCopyFiles } = await this.getFiles(
           sourcePath,
           packageJson,
@@ -174,50 +174,62 @@ export class BuildService {
           }
         }
 
-        // 只有一个入口，判断是否符合es 格式，若符合，则不进行构建优化
-        let isEsm = false
-
-        if (buildJsFiles.length === 1) {
-          const file = buildJsFiles[0]
-          isEsm = await isEsmFile(fs.readFileSync(file, { encoding: 'utf-8' }))
-
-          // 符合 es 格式 直接拷贝
-          if (isEsm) {
-            await fs.copy(sourcePath, outputPath)
-            await minifyEsmFiles(outputPath)
-            // 压缩 br 文件
-            await brotliCompressDir(outputPath)
-            // 构建 package.json
-            await build({
-              buildFiles: buildPkgFiles,
-              sourcePath,
-              outputPath,
-              entryFiles: [],
-            })
-          }
-        }
-
-        // 入口文件不是esm，继续执行构建
-        if (!isEsm) {
-          const entryFiles = this.getEntryFiles(packageJson, sourcePath)
-          // 执行构建
-
+        const esmBuild = async () => {
+          await fs.copy(sourcePath, outputPath)
+          await minifyEsmFiles(outputPath)
+          // 压缩 br 文件
+          await brotliCompressDir(outputPath)
+          // 构建 package.json
           await build({
-            buildFiles,
+            buildFiles: buildPkgFiles,
             sourcePath,
             outputPath,
-            entryFiles,
+            entryFiles: [],
           })
+        }
 
-          // 拷贝其余文件到构建输出目录
-          await Promise.all(
-            needCopyFiles.map((file) =>
-              fs.copy(
-                path.resolve(sourcePath, file),
-                path.resolve(outputPath, file),
+        // package.json内 如果有 esmpack字段
+        // 且 esmd=true，则表示改包已经符合esm规范，不需要进行构建，直接上传
+        if (packageJson?.esmpack?.esmd) {
+          await esmBuild()
+        } else {
+          // 只有一个入口，判断是否符合es 格式，若符合，则不进行构建优化
+          let isEsm = false
+
+          if (buildJsFiles.length === 1) {
+            const file = buildJsFiles[0]
+            isEsm = await isEsmFile(
+              fs.readFileSync(file, { encoding: 'utf-8' }),
+            )
+
+            // 符合 es 格式 直接拷贝
+            if (isEsm) {
+              await esmBuild()
+            }
+          }
+
+          // 入口文件不是esm，继续执行构建
+          if (!isEsm) {
+            const entryFiles = this.getEntryFiles(packageJson, sourcePath)
+            // 执行构建
+
+            await build({
+              buildFiles,
+              sourcePath,
+              outputPath,
+              entryFiles,
+            })
+
+            // 拷贝其余文件到构建输出目录
+            await Promise.all(
+              needCopyFiles.map((file) =>
+                fs.copy(
+                  path.resolve(sourcePath, file),
+                  path.resolve(outputPath, file),
+                ),
               ),
-            ),
-          )
+            )
+          }
         }
       } else {
         await fs.copy(sourcePath, outputPath)
@@ -232,21 +244,14 @@ export class BuildService {
         )}, cost ${colors.cyan(`${duration.toFixed(2)}s`)}`,
       )
       console.log('')
-      //  表示上传成功，后续根据该文件判断是否已经转换过
-      //   fs.outputFileSync(
-      //     path.join(outputPath, ESMPACK_ESMD_FILE),
-      //     ESMPACK_ESMD_FILE,
-      //     {
-      //       encoding: 'utf-8',
-      //     },
-      //   )
+
       // upload oss
       await originAdapter.uploadDir({
         cwd: outputPath,
         uploadDir,
       })
 
-      //   清空输出目录，防止构建累计，导致文件过多
+      // 清空输出目录，防止构建累计，导致文件过多
       await Promise.all([fs.remove(outputPath), fs.remove(sourcePath)])
     } catch (error: any) {
       console.log(error)
@@ -317,6 +322,8 @@ export class BuildService {
         entryFiles.push(...Object.values(file || {}))
       }
     })
+
+    entryFiles = entryFiles.filter((file) => typeof file === 'string')
 
     entryFiles = entryFiles.map((file) => {
       return path.join(sourcePath, file)

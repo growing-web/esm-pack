@@ -652,6 +652,10 @@ export async function getFileType(root: string, filepath = '') {
 }
 
 export function normalizeExport(str: string) {
+  if (typeof str !== 'string') {
+    return str
+  }
+
   if (str?.startsWith('./')) {
     return str
   }
