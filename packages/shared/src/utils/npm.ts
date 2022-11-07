@@ -88,6 +88,7 @@ export function getNpmTarball(
 export async function extractTarball(
   destDir: string,
   tarballURL: string,
+  headers: any = {},
 ): Promise<string[]> {
   return new Promise((resolve, reject) => {
     const allFiles: string[] = []
@@ -97,10 +98,11 @@ export async function extractTarball(
     const rp = request({
       url: tarballURL,
       timeout: 60 * 1000,
+      headers: headers,
     })
 
-    rp.catch(() => {
-      reject()
+    rp.catch((e) => {
+      reject(e)
     })
 
     rp.on('error', reject)
@@ -229,6 +231,11 @@ async function fetchPackageConfig(packageName: string, version: string) {
 // }
 
 export async function getTarballURL(packageName: string, version: string) {
+  // 内网包走内网流程
+  if (isInternalScope(packageName)) {
+    return getGdTarballURL(packageName, version)
+  }
+
   if (process.env.FALLBACK_MODE !== 'on') {
     return await _getTarballURL(packageName, version, true)
   }
@@ -261,7 +268,18 @@ async function _getTarballURL(
   return `${process.env.NPM_REGISTRY_URL}/${packageName}/-/${tarballName}-${version}.tgz`
 }
 
-async function getCNFallbackTarballUrl(packageName, version, tarballName) {
+async function getGdTarballURL(packageName: string, version: string) {
+  // # http://registry-npm.gaoding.com/@gaoding/access-controller/download/@gaoding/access-controller-0.0.2.tgz
+
+  const tarballURL = `${process.env.GD_NPM_REGISTRY_URL}/${packageName}/download/${packageName}-${version}.tgz`
+  return tarballURL
+}
+
+async function getCNFallbackTarballUrl(
+  packageName: string,
+  version: string,
+  tarballName: string,
+) {
   const NPM_REGISTRY_URL = process.env.CN_NPM_REGISTRY_URL as string
 
   const cacheKey =
@@ -429,4 +447,25 @@ export async function getPackageByUrl(url: string) {
     res.statusCode,
   )
   return null
+}
+
+/**
+ * 内网包
+ * @returns
+ */
+export function getInternalNpmScopes() {
+  const scopeConfig = process.env.INTERNAL_SCOPES ?? ''
+  const scopes = scopeConfig.split(',')
+  return scopes.filter(Boolean)
+}
+
+export function isInternalScope(packageName: string) {
+  const scopes = getInternalNpmScopes()
+  if (!packageName?.startsWith('@')) {
+    return false
+  }
+
+  const scope = packageName.split('/')?.[0]
+
+  return scopes?.includes(scope)
 }

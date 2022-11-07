@@ -32,6 +32,7 @@ import {
   brotliCompressDir,
   minifyEsmFiles,
   createLogger,
+  isInternalScope,
 } from '@growing-web/esmpack-shared'
 import { RedisLock, createRedisClient } from '@/plugins/redis'
 
@@ -127,7 +128,19 @@ export class BuildService {
         if (!tarballURL) {
           notFoundError()
         }
-        await extractTarball(sourcePath, tarballURL!)
+
+        // const gdHeaders={}
+
+        // {
+        //     Authorization: 'Bearer f848e478-e1d5-476e-9071-525bf781d2e7',
+        //   }
+
+        const headers = isInternalScope(packageName)
+          ? {
+              Authorization: `Bearer ${process.env.NPM_TOKEN}`,
+            }
+          : {}
+        await extractTarball(sourcePath, tarballURL!, headers)
       } catch (error) {
         notFoundError()
       }
