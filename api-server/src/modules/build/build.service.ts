@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common'
-import { PackageJson, writePackageJSON } from 'pkg-types'
+import { PackageJson, writePackageJSON, readPackageJSON } from 'pkg-types'
 import { createOriginAdapter } from '@/originAdapter'
 import fs from 'fs-extra'
 import path from 'node:path'
@@ -33,8 +33,21 @@ import {
   minifyEsmFiles,
   createLogger,
   isInternalScope,
+  semver,
+  LruCache,
 } from '@growing-web/esmpack-shared'
 import { RedisLock, createRedisClient } from '@/plugins/redis'
+import axios from 'axios'
+
+const oneMegabyte = 1024 * 1024
+const oneSecond = 1000
+const oneMinute = oneSecond * 60
+
+const cache = new LruCache<BufferEncoding, any>({
+  maxSize: oneMegabyte * 40,
+  sizeCalculation: Buffer.byteLength,
+  ttl: oneMinute * 60 * 12,
+})
 
 @Injectable()
 export class BuildService {
@@ -156,6 +169,9 @@ export class BuildService {
       await fs.copy(sourcePath, outputPath)
       return
     }
+
+    // 重写一些匹配的包
+    await this.overridesInfo(sourcePath)
 
     const startTime = new Date().getTime()
     // 重写 package.json
@@ -407,5 +423,78 @@ export class BuildService {
     }
 
     return { buildFiles, needCopyFiles }
+  }
+
+  private async overridesInfo(sourcePath: string) {
+    const json = await readPackageJSON(sourcePath)
+    const packageName = json.name
+    const packageVersion = json.version
+
+    const url = process.env.OVERRIDES_JSON_URL
+    if (!url || !packageName || !packageVersion) {
+      return {}
+    }
+    try {
+      const cacheKey = url as any
+      const cacheValue = cache.get(cacheKey)
+
+      let overrides: any
+      if (cacheValue !== null && cacheValue !== undefined) {
+        overrides = JSON.parse(cacheValue)
+      } else {
+        const overridesJson = await axios(url)
+        overrides = overridesJson.data?.[packageName]?.overrides
+        if (overrides) {
+          cache.set(cacheKey, JSON.stringify(overrides), { ttl: oneMinute })
+        }
+      }
+      if (!overrides) {
+        return {}
+      }
+
+      let matchRange: any = null
+
+      for (const override of overrides) {
+        if (matchRange) {
+          continue
+        }
+        if (semver.satisfies(packageVersion, override.range)) {
+          matchRange = override
+        }
+      }
+
+      const overridesPackage = matchRange?.package
+      if (!overridesPackage) {
+        return {}
+      }
+
+      //   只允许覆盖 exports、files、main、module
+      if (overridesPackage?.exports) {
+        json.exports = Object.assign(
+          json?.exports ?? {},
+          overridesPackage?.exports ?? {},
+        )
+      }
+
+      if (overridesPackage.files) {
+        json.files = [
+          ...(json?.files ?? []),
+          ...(overridesPackage?.files ?? []),
+        ]
+      }
+
+      if (overridesPackage.main) {
+        json.main = overridesPackage?.main
+      }
+
+      if (overridesPackage.module) {
+        json.module = overridesPackage?.module
+      }
+
+      await writePackageJSON(path.join(sourcePath, PACKAGE_JSON), json)
+      return json
+    } catch (error) {
+      return {}
+    }
   }
 }

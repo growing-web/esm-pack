@@ -32,7 +32,7 @@ const packageConfigExcludeKeys = [
 const cache = new LRUCache<BufferEncoding, any>({
   maxSize: oneMegabyte * 40,
   sizeCalculation: Buffer.byteLength,
-  ttl: oneSecond,
+  ttl: oneMinute,
 })
 
 const agent = new https.Agent({
