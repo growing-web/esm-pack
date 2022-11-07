@@ -57,7 +57,6 @@ export class NpmController {
       return res
         .status(404)
         .set({
-          //   'Cache-Control': 'public, max-age=31536000', // 1 year
           'Cache-Tag': 'missing, missing-entry',
         })
         .type('text')

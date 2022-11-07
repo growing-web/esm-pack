@@ -68,21 +68,18 @@ export class BuildService {
       //   await redisUtil.set(lockKey, '1', 10)
 
       // Redis 分布式锁，防止执行相同的包构建任务
-      await redisLock.lock(lockKey, 5 * 60 * 1000, 50, 10)
+      await redisLock.lock(lockKey, 60 * 1000, 50, 10)
 
       await this.doBuild(packageName, packageVersion, needBuild)
-      //   await redisUtil.del(lockKey)
     } catch (error: any) {
       if (error.toString().includes('RedisLock')) {
         throw new ForbiddenException(
           `ESMPACK is still processing ${packageName}@${packageVersion}, this can take a few minutes!`,
         )
       }
-      //   await redisUtil.del(lockKey)
       redisLock.unlock(lockKey)
       throw error
     } finally {
-      //   await redisUtil.del(lockKey)
       redisLock.unlock(lockKey)
     }
   }
@@ -277,6 +274,11 @@ export class BuildService {
     return parsed
   }
 
+  /**
+   * 检查路径是否符合规范
+   * @param pathname
+   * @returns
+   */
   async validateNpmPackageName(packageName: string) {
     const reason = await validateNpmPackageName(packageName)
 

@@ -71,9 +71,7 @@ export class NpmService {
       try {
         const redisUtil = new RedisUtil()
 
-        const cacheEntry =
-          // (await redisUtil.get(ossKey)) ||
-          await redisUtil.get(npmKey)
+        const cacheEntry = await redisUtil.get(npmKey)
 
         if (cacheEntry) {
           cacheEntry.content = Buffer.from(cacheEntry.content)
@@ -381,9 +379,11 @@ export class NpmService {
     acceptBrotli: Boolean,
   ) {
     const res = await getPackageByUrl(url)
+
     const { stream, headers } = res || {}
 
     let content = await bufferStream(stream)
+
     if (acceptBrotli) {
       content = await brotliCompress(filename, content)
     }
