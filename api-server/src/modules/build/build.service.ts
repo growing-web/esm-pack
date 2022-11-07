@@ -129,12 +129,6 @@ export class BuildService {
           notFoundError()
         }
 
-        // const gdHeaders={}
-
-        // {
-        //     Authorization: 'Bearer f848e478-e1d5-476e-9071-525bf781d2e7',
-        //   }
-
         const headers = isInternalScope(packageName)
           ? {
               Authorization: `Bearer ${process.env.NPM_TOKEN}`,
