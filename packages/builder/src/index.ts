@@ -13,7 +13,7 @@ import { rollupPluginNodeProcessPolyfill } from './plugins/rollupPluginNodeProce
 import { isDynamicEntry } from './resolvePackage'
 import { rollupBrotliPlugin, brotli } from './brotlify'
 import { enableSourceMap } from './config'
-import { APP_NAME } from './constants'
+import { APP_NAME, NATIVE_MODULES } from './constants'
 export * from './resolvePackage'
 export * from './recursion'
 
@@ -334,8 +334,9 @@ function needExternal(id: string) {
     id.startsWith(`node:`) ||
     id[0] === '.' ||
     path.isAbsolute(id) ||
-    ['process', 'Buffer', 'module'].includes(id) ||
-    path.basename(id) === 'package.json'
+    NATIVE_MODULES.includes(id) ||
+    path.basename(id) === 'package.json' ||
+    id.startsWith('@babel/')
   )
 }
 
