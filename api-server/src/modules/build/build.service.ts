@@ -46,7 +46,7 @@ const oneMinute = oneSecond * 60
 const cache = new LruCache<BufferEncoding, any>({
   maxSize: oneMegabyte * 40,
   sizeCalculation: Buffer.byteLength,
-  ttl: oneMinute * 60 * 12,
+  ttl: oneMinute * 20,
 })
 
 @Injectable()
@@ -431,6 +431,7 @@ export class BuildService {
     const packageVersion = json.version
 
     const url = process.env.OVERRIDES_JSON_URL
+
     if (!url || !packageName || !packageVersion) {
       return {}
     }
