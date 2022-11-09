@@ -334,6 +334,7 @@ importers:
       '@nestjs/common': ^9.2.0
       '@types/debug': 4.1.7
       '@types/npm-registry-fetch': ^8.0.4
+      '@types/ping': ^0.4.1
       '@types/request-promise': ^4.1.48
       '@types/semver': 7.3.13
       '@types/tar': ^6.1.3
@@ -348,6 +349,7 @@ importers:
       lru-cache: ^7.14.1
       mime: ^3.0.0
       npm-registry-fetch: ^14.0.2
+      ping: ^0.4.2
       request: ^2.88.2
       request-promise: ^4.2.6
       semver: ^7.3.8
@@ -371,6 +373,7 @@ importers:
       lru-cache: 7.14.1
       mime: 3.0.0
       npm-registry-fetch: 14.0.2
+      ping: 0.4.2
       request: 2.88.2
       request-promise: 4.2.6_request@2.88.2
       semver: 7.3.8
@@ -379,6 +382,7 @@ importers:
       validate-npm-package-name: 5.0.0
     devDependencies:
       '@types/debug': 4.1.7
+      '@types/ping': 0.4.1
 
 packages:
 
@@ -1898,6 +1902,10 @@ packages:
   /@types/parse-json/4.0.0:
     resolution: {integrity: sha512-//oorEZjL6sbPcKUaCdIGlIUeH26mgzimjBB77G6XRgnDl/L5wOnpyBGRe/Mmf5CVW3PwEBE1NjiMZ/ssFh4wA==}
     dev: false
+
+  /@types/ping/0.4.1:
+    resolution: {integrity: sha512-q/D+xQvoqrHvntvz2A0Pb0ImYwnN3zakluUp8O2qoogGoVMVbdY2K/ulxHcCh9TzYzVoojayHBa9gYQDIZ4v0A==}
+    dev: true
 
   /@types/qs/6.9.7:
     resolution: {integrity: sha512-FGa1F62FT09qcrueBA6qYTrJPVDzah9a+493+o2PCXsesWHIn27G98TsSMs3WPNbZIEj4+VJf6saSFpvD+3Zsw==}
@@ -6860,6 +6868,14 @@ packages:
     engines: {node: '>=6'}
     dev: false
 
+  /ping/0.4.2:
+    resolution: {integrity: sha512-1uAw0bzHtrPbPo2s6no06oZAzY6KqKclEJR1JRZKIHKXKlPdrz9N0/1MPPB+BbrvMjN3Mk0pcod3bfLNZFRo9w==}
+    engines: {node: '>=4.0.0'}
+    dependencies:
+      q: 1.5.1
+      underscore: 1.13.6
+    dev: false
+
   /pkg-dir/4.2.0:
     resolution: {integrity: sha512-HRDzbaKjC+AOWVXxAU/x54COGeIv9eb+6CkDSQoNTt4XyWoIJvuPsXizxu/Fr23EiekbtZwmh1IcIG/l/a10GQ==}
     engines: {node: '>=8'}
@@ -8615,6 +8631,10 @@ packages:
 
   /undefsafe/2.0.5:
     resolution: {integrity: sha512-WxONCrssBM8TSPRqN5EmsjVrsv4A8X12J4ArBiiayv3DyyG3ZlIg6yysuuSYdZsVz3TKcTg2fd//Ujd4CHV1iA==}
+    dev: false
+
+  /underscore/1.13.6:
+    resolution: {integrity: sha512-+A5Sja4HP1M08MaXya7p5LvjuM7K6q/2EaC0+iovj/wOcMsTzMvDFbasi/oSapiwOlt252IqsKqPjCl7huKS0A==}
     dev: false
 
   /unescape/1.0.1:

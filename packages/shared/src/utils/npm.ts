@@ -8,6 +8,7 @@ import request from 'request-promise'
 import LRUCache from 'lru-cache'
 import gunzip from 'gunzip-maybe'
 import { bufferStream } from './bufferStream'
+import ping from 'ping'
 
 const oneMegabyte = 1024 * 1024
 const oneSecond = 1000
@@ -58,8 +59,32 @@ function isScopedPackageName(packageName: string) {
  * @return {array} [code, resute]
  */
 export async function getNpmPackageInfo(packageName: string): Promise<any> {
-  const ret = await fetch.json(`${packageName}`)
+  const registry = await getRegistry()
+
+  const ret = await fetch.json(`${packageName}`, {
+    maxSockets: 100,
+    registry,
+  })
+
   return ret
+}
+
+export async function getRegistry() {
+  const defaultRegistry = process.env.NPM_REGISTRY_URL
+  const hosts = [defaultRegistry, process.env.NPMMIRROR_REGISTRY_URL].filter(
+    Boolean,
+  ) as string[]
+
+  for (const host of hosts) {
+    const ret = await ping.promise.probe(
+      host.replace('https://', '').replace('http://', ''),
+    )
+
+    if (ret.alive) {
+      return host
+    }
+  }
+  return defaultRegistry
 }
 
 async function fetchVersionsAndTags(packageName) {

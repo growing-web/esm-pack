@@ -48,6 +48,7 @@
     "lru-cache": "^7.14.1",
     "mime": "^3.0.0",
     "npm-registry-fetch": "^14.0.2",
+    "ping": "^0.4.2",
     "request": "^2.88.2",
     "request-promise": "^4.2.6",
     "semver": "^7.3.8",
@@ -56,6 +57,7 @@
     "validate-npm-package-name": "^5.0.0"
   },
   "devDependencies": {
-    "@types/debug": "4.1.7"
+    "@types/debug": "4.1.7",
+    "@types/ping": "^0.4.1"
   }
 }
