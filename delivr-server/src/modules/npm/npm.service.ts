@@ -206,6 +206,7 @@ export class NpmService {
       }
       return entry
     } catch (error) {
+      console.error(error)
       Logger.error('InternalServerErrorException：' + error)
       throw new InternalServerErrorException()
     }

@@ -335,8 +335,8 @@ function needExternal(id: string) {
     id[0] === '.' ||
     path.isAbsolute(id) ||
     NATIVE_MODULES.includes(id) ||
-    path.basename(id) === 'package.json' ||
-    id.startsWith('@babel/')
+    path.basename(id) === 'package.json'
+    // id.startsWith('@babel/')
   )
 }
 

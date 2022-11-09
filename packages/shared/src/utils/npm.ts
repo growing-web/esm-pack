@@ -37,6 +37,8 @@ const cache = new LRUCache<BufferEncoding, any>({
 
 const agent = new https.Agent({
   keepAlive: true,
+  maxSockets: Number.MAX_VALUE,
+  timeout: 120000,
 })
 
 function get(options: RequestOptions): Promise<any> {
