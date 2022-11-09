@@ -8,7 +8,7 @@ import request from 'request-promise'
 import LRUCache from 'lru-cache'
 import gunzip from 'gunzip-maybe'
 import { bufferStream } from './bufferStream'
-import ping from 'ping'
+import axios from 'axios'
 
 const oneMegabyte = 1024 * 1024
 const oneSecond = 1000
@@ -76,12 +76,13 @@ export async function getRegistry() {
   ) as string[]
 
   for (const host of hosts) {
-    const ret = await ping.promise.probe(
-      host.replace('https://', '').replace('http://', ''),
-    )
-
-    if (ret.alive) {
-      return host
+    try {
+      const res = await axios.get(host)
+      if (res.status < 400) {
+        return host
+      }
+    } catch (error) {
+      return defaultRegistry
     }
   }
   return defaultRegistry
