@@ -59,34 +59,34 @@ function isScopedPackageName(packageName: string) {
  * @return {array} [code, resute]
  */
 export async function getNpmPackageInfo(packageName: string): Promise<any> {
-  const registry = await getRegistry()
+  //   const registry = await getRegistry()
 
   const ret = await fetch.json(`${packageName}`, {
     maxSockets: 100,
-    registry,
+    timeout: 120000,
   })
 
   return ret
 }
 
-export async function getRegistry() {
-  const defaultRegistry = process.env.NPM_REGISTRY_URL
-  const hosts = [defaultRegistry, process.env.NPMMIRROR_REGISTRY_URL].filter(
-    Boolean,
-  ) as string[]
+// export async function getRegistry() {
+//   const defaultRegistry = process.env.NPM_REGISTRY_URL
+//   const hosts = [defaultRegistry, process.env.NPMMIRROR_REGISTRY_URL].filter(
+//     Boolean,
+//   ) as string[]
 
-  for (const host of hosts) {
-    try {
-      const res = await axios.get(host)
-      if (res.status < 400) {
-        return host
-      }
-    } catch (error) {
-      return defaultRegistry
-    }
-  }
-  return defaultRegistry
-}
+//   for (const host of hosts) {
+//     try {
+//       const res = await axios.get(host)
+//       if (res.status < 400) {
+//         return host
+//       }
+//     } catch (error) {
+//       return defaultRegistry
+//     }
+//   }
+//   return defaultRegistry
+// }
 
 async function fetchVersionsAndTags(packageName) {
   const info = await getNpmPackageInfo(packageName)
