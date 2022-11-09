@@ -8,6 +8,7 @@ import request from 'request-promise'
 import LRUCache from 'lru-cache'
 import gunzip from 'gunzip-maybe'
 import { bufferStream } from './bufferStream'
+import axios from 'axios'
 
 const oneMegabyte = 1024 * 1024
 const oneSecond = 1000
@@ -37,6 +38,7 @@ const cache = new LRUCache<BufferEncoding, any>({
 
 const agent = new https.Agent({
   keepAlive: true,
+  timeout: 120000,
 })
 
 function get(options: RequestOptions): Promise<any> {
@@ -51,14 +53,39 @@ function isScopedPackageName(packageName: string) {
 
 /**
  * Detect the latest version of NPM
- * @param  {string} pkgName  package name
- * @param  {String} version  pacage version
+ * @param  {string} packageName  package name
  * @return {array} [code, resute]
  */
 export async function getNpmPackageInfo(packageName: string): Promise<any> {
-  const ret = await fetch.json(`${packageName}`)
+  //   const registry = await getRegistry()
+
+  const ret = await fetch.json(`${packageName}`, {
+    maxSockets: 100,
+    timeout: 120000,
+    registry: 'https://registry.npmmirror.com',
+  })
+
   return ret
 }
+
+// export async function getRegistry() {
+//   const defaultRegistry = process.env.NPM_REGISTRY_URL
+//   const hosts = [defaultRegistry, process.env.NPMMIRROR_REGISTRY_URL].filter(
+//     Boolean,
+//   ) as string[]
+
+//   for (const host of hosts) {
+//     try {
+//       const res = await axios.get(host)
+//       if (res.status < 400) {
+//         return host
+//       }
+//     } catch (error) {
+//       return defaultRegistry
+//     }
+//   }
+//   return defaultRegistry
+// }
 
 async function fetchVersionsAndTags(packageName) {
   const info = await getNpmPackageInfo(packageName)

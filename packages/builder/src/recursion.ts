@@ -6,7 +6,7 @@ import _ from 'lodash'
  * @returns
  */
 export function recursionExportsRemoveDts(
-  exp: Record<string, any>,
+  exp: Record<string, any> = {},
 ): Record<string, any> {
   const resultExports: Record<string, any> = {}
 
@@ -27,7 +27,7 @@ export function recursionExportsRemoveDts(
  * @param exp
  * @returns
  */
-export function recursionExportsValues(exp: Record<string, any>) {
+export function recursionExportsValues(exp: Record<string, any> = {}) {
   const files: string[] = []
   for (const value of Object.values(exp)) {
     if (_.isBoolean(value)) {

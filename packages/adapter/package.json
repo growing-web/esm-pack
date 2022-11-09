@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@types/ali-oss": "^6.16.6",
-    "@types/lodash": "4.14.186",
+    "@types/lodash": "4.14.188",
     "@types/mime": "^3.0.1",
     "ali-oss": "^6.17.1",
     "fast-glob": "3.2.12",

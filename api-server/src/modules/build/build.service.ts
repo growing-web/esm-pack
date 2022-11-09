@@ -34,20 +34,9 @@ import {
   createLogger,
   isInternalScope,
   semver,
-  LruCache,
 } from '@growing-web/esmpack-shared'
 import { RedisLock, createRedisClient } from '@/plugins/redis'
-import axios from 'axios'
-
-const oneMegabyte = 1024 * 1024
-const oneSecond = 1000
-const oneMinute = oneSecond * 60
-
-const cache = new LruCache<BufferEncoding, any>({
-  maxSize: oneMegabyte * 40,
-  sizeCalculation: Buffer.byteLength,
-  ttl: oneMinute * 20,
-})
+import { getOverrides } from './overrides'
 
 @Injectable()
 export class BuildService {
@@ -275,7 +264,7 @@ export class BuildService {
       })
 
       // 清空输出目录，防止构建累计，导致文件过多
-      await Promise.all([fs.remove(outputPath), fs.remove(sourcePath)])
+      Promise.all([fs.remove(outputPath), fs.remove(sourcePath)])
     } catch (error: any) {
       console.log(error)
       throw new InternalServerErrorException(error.toString())
@@ -430,26 +419,14 @@ export class BuildService {
     const packageName = json.name
     const packageVersion = json.version
 
-    const url = process.env.OVERRIDES_JSON_URL
-
-    if (!url || !packageName || !packageVersion) {
+    if (!packageName || !packageVersion) {
       return {}
     }
-    try {
-      const cacheKey = url as any
-      const cacheValue = cache.get(cacheKey)
 
-      let overrides: any
-      if (cacheValue !== null && cacheValue !== undefined) {
-        overrides = JSON.parse(cacheValue)
-      } else {
-        const overridesJson = await axios(url)
-        overrides = overridesJson.data?.[packageName]?.overrides
-        if (overrides) {
-          cache.set(cacheKey, JSON.stringify(overrides), { ttl: oneMinute })
-        }
-      }
-      if (!overrides) {
+    try {
+      const overrides = await getOverrides(packageName)
+
+      if (!overrides || !Array.isArray(overrides)) {
         return {}
       }
 
@@ -465,16 +442,22 @@ export class BuildService {
       }
 
       const overridesPackage = matchRange?.package
+
       if (!overridesPackage) {
-        return {}
+        return overrides
       }
 
       //   只允许覆盖 exports、files、main、module
       if (overridesPackage?.exports) {
-        json.exports = Object.assign(
-          json?.exports ?? {},
-          overridesPackage?.exports ?? {},
-        )
+        const jsonExports =
+          typeof json?.exports === 'string'
+            ? { '.': json?.exports }
+            : json?.exports ?? {}
+
+        json.exports = {
+          ...jsonExports,
+          ...(overridesPackage?.exports ?? {}),
+        }
       }
 
       if (overridesPackage.files) {
@@ -484,17 +467,13 @@ export class BuildService {
         ]
       }
 
-      if (overridesPackage.main) {
-        json.main = overridesPackage?.main
-      }
-
-      if (overridesPackage.module) {
-        json.module = overridesPackage?.module
-      }
+      json.main = overridesPackage?.main ?? json.main
+      json.module = overridesPackage?.module ?? json.module
 
       await writePackageJSON(path.join(sourcePath, PACKAGE_JSON), json)
       return json
     } catch (error) {
+      console.error(error)
       return {}
     }
   }

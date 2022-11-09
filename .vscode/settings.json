@@ -18,7 +18,15 @@
   "files.exclude": {
     "**/.editorconfig": true,
     "**/.eslintignore": true,
-    "**/.prettierignore": true
+    "**/.prettierignore": true,
+    "**/.esmd/*/**": true
+  },
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/*/**": true,
+    "**/.hg/store/**": true,
+    "**/.esmd/*/**": true
   },
   "commentTranslate.multiLineMerge": true
 }
