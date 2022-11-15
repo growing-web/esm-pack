@@ -42,7 +42,7 @@
     "debug": "4.3.4",
     "dotenv": "16.0.3",
     "es-module-lexer": "^1.1.0",
-    "esbuild": "^0.15.13",
+    "esbuild": "^0.15.14",
     "fast-glob": "3.2.12",
     "fs-extra": "^10.1.0",
     "gunzip-maybe": "^1.4.2",
