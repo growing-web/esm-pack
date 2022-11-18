@@ -75,9 +75,9 @@
     "prettier": "^2.7.1",
     "rimraf": "^3.0.2",
     "turbo": "1.6.3",
-    "typescript": "^4.8.4",
-    "unbuild": "^0.9.4",
-    "vite": "^3.2.3",
+    "typescript": "^4.9.3",
+    "unbuild": "^1.0.1",
+    "vite": "^3.2.4",
     "vitest": "^0.25.2"
   },
   "engines": {

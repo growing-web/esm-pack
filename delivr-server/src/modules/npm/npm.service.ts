@@ -99,8 +99,19 @@ export class NpmService {
       acceptBrotli,
     )
 
+    let whiteList: string[] = []
+    try {
+      whiteList = process.env.BACK_SOURCE_WHITE_LIST?.split(',') ?? []
+    } catch (error) {
+      //
+    }
     // 通过 jspm generate 进行build时候，不需要进行 npm 回源处理，只访问OSS内的文件即可
-    if (!isBrowser) {
+    // 环境变量未开，也直接访问OSS即可
+    if (
+      !isBrowser ||
+      (process.env.OPEN_BACK_SOURCE !== 'on' &&
+        !whiteList.includes(packageName))
+    ) {
       return entry
     }
 
