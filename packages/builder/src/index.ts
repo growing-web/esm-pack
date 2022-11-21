@@ -312,6 +312,7 @@ function createRollupPlugins(name: string | undefined, minify, env: string) {
     }),
     rollupPluginWrapTargets(false, name),
     esbuild({
+      target: 'es2015',
       legalComments: 'none',
       minify: minify,
       define: {
