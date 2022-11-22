@@ -197,6 +197,7 @@ export class BuildService {
             sourcePath,
             outputPath,
             entryFiles: [],
+            brotlfy: false,
           })
         }
 
@@ -230,6 +231,7 @@ export class BuildService {
               sourcePath,
               outputPath,
               entryFiles,
+              brotlfy: false,
             })
 
             // 拷贝其余文件到构建输出目录
