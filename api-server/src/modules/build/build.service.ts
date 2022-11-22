@@ -29,7 +29,7 @@ import {
   getTarballURL,
   validateNpmPackageName,
   isEsmFile,
-  brotliCompressDir,
+  //   brotliCompressDir,
   minifyEsmFiles,
   createLogger,
   isInternalScope,
@@ -190,13 +190,14 @@ export class BuildService {
           await fs.copy(sourcePath, outputPath)
           await minifyEsmFiles(outputPath)
           // 压缩 br 文件
-          await brotliCompressDir(outputPath)
+          //   await brotliCompressDir(outputPath)
           // 构建 package.json
           await build({
             buildFiles: buildPkgFiles,
             sourcePath,
             outputPath,
             entryFiles: [],
+            brotlfy: false,
           })
         }
 
@@ -230,6 +231,7 @@ export class BuildService {
               sourcePath,
               outputPath,
               entryFiles,
+              brotlfy: false,
             })
 
             // 拷贝其余文件到构建输出目录
@@ -246,7 +248,7 @@ export class BuildService {
       } else {
         await fs.copy(sourcePath, outputPath)
         await minifyEsmFiles(outputPath)
-        await brotliCompressDir(outputPath)
+        // await brotliCompressDir(outputPath)
       }
 
       const duration = (new Date().getTime() - startTime) / 1000
