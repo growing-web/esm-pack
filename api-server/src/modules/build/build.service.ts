@@ -29,7 +29,7 @@ import {
   getTarballURL,
   validateNpmPackageName,
   isEsmFile,
-  brotliCompressDir,
+  //   brotliCompressDir,
   minifyEsmFiles,
   createLogger,
   isInternalScope,
