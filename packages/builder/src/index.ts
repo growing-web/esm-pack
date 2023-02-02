@@ -49,6 +49,7 @@ export interface BuildSingleEntryOptions {
   devPrefix?: string
   minify?: boolean
   brotlfy?: boolean
+  dev?: boolean
 }
 
 export async function build({
@@ -126,6 +127,7 @@ export async function build({
           name: pkg.name,
           sourcemap,
           brotlfy: brotlfy,
+          dev: true,
         }),
       ),
     ),
@@ -150,7 +152,7 @@ async function doBuildMultipleEntry({
     onwarn: onWarning,
     external: (id) =>
       !inputKeys.includes(path.join(sourcePath, id)) && !needExternal(id),
-    plugins: [...createRollupPlugins(name, minify, env)],
+    plugins: [...createRollupPlugins(name, minify, env, false)],
   })
 
   fs.ensureDirSync(outputPath)
@@ -160,7 +162,7 @@ async function doBuildMultipleEntry({
     format: 'esm',
     exports: 'named',
     sourcemap,
-    compact: minify,
+    // compact: minify,
     entryFileNames: (chunk) => {
       let id = chunk.facadeModuleId
       id = id?.replace(/(\?commonjs-entry)$/, '') ?? id
@@ -184,26 +186,19 @@ async function doBuildMultipleEntry({
       const promises: any[] = []
       if (chunk.type === 'chunk') {
         const map = chunk.map?.toString()
-        const encoding = {
-          encoding: 'utf8',
-        }
 
         const filename = chunk.fileName
 
         promises.push(
           ...[
-            fs.outputFile(
-              path.join(outputPath, filename),
-              chunk.code,
-              encoding,
-            ),
+            fs.outputFile(path.join(outputPath, filename), chunk.code, {
+              encoding: 'utf-8',
+            }),
             enableSourceMap &&
               map &&
-              fs.outputFile(
-                path.join(outputPath, `${filename}.map`),
-                map,
-                encoding,
-              ),
+              fs.outputFile(path.join(outputPath, `${filename}.map`), map, {
+                encoding: 'utf-8',
+              }),
           ],
         )
       }
@@ -239,6 +234,7 @@ async function doBuildSingleEntry({
   minify = true,
   devPrefix = 'dev.',
   brotlfy = false,
+  dev = false,
 }: BuildSingleEntryOptions) {
   let bundle
   let file
@@ -249,7 +245,7 @@ async function doBuildSingleEntry({
       onwarn: onWarning,
       external: (id) => path.join(id) !== path.join(input) && !needExternal(id),
       plugins: [
-        ...createRollupPlugins(name, minify, env),
+        ...createRollupPlugins(name!, minify, env, dev),
         brotlfy && rollupBrotliPlugin(),
       ].filter(Boolean),
     })
@@ -291,7 +287,12 @@ async function doBuildSingleEntry({
   }
 }
 
-function createRollupPlugins(name: string | undefined, minify, env: string) {
+function createRollupPlugins(
+  name: string | undefined,
+  minify,
+  env: string,
+  dev,
+) {
   return [
     peerDepsExternal(),
     resolve({
@@ -307,14 +308,14 @@ function createRollupPlugins(name: string | undefined, minify, env: string) {
     }),
     commonjs({
       extensions: ['.js', '.cjs'],
-      //   esmExternals: true,
+      esmExternals: true,
       requireReturnsDefault: 'auto',
     }),
     rollupPluginWrapTargets(false, name),
     esbuild({
       target: 'es2015',
-      legalComments: 'none',
-      minify: minify,
+      //   legalComments: 'inline',
+      minify: dev ? false : minify,
       define: {
         'process.env.NODE_ENV': JSON.stringify(env),
         'process.env.VUE_ENV': JSON.stringify('browser'),

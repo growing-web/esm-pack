@@ -29,7 +29,7 @@ import {
   getTarballURL,
   validateNpmPackageName,
   isEsmFile,
-  //   brotliCompressDir,
+  brotliCompressDir,
   minifyEsmFiles,
   createLogger,
   isInternalScope,
@@ -38,12 +38,16 @@ import {
 import { RedisLock, createRedisClient } from '@/plugins/redis'
 import { getOverrides } from './overrides'
 
+interface BuildOptions {
+  rebuild?: boolean
+}
+
 @Injectable()
 export class BuildService {
   private readonly logger = createLogger(BuildService.name)
   constructor() {}
 
-  async build(pathname: string | undefined, needBuild = true) {
+  async build(pathname: string, options: BuildOptions = {}) {
     // 确保构建文件存在
     fs.ensureDirSync(ESM_DIR)
 
@@ -73,7 +77,7 @@ export class BuildService {
       // Redis 分布式锁，防止执行相同的包构建任务
       await redisLock.lock(lockKey, 40 * 1000, 50, 10)
 
-      await this.doBuild(packageName, packageVersion, needBuild)
+      await this.doBuild(packageName, packageVersion, options)
     } catch (error: any) {
       if (error.toString().includes('RedisLock')) {
         throw new ForbiddenException(
@@ -87,7 +91,11 @@ export class BuildService {
     }
   }
 
-  async doBuild(packageName: string, packageVersion: string, needBuild = true) {
+  async doBuild(
+    packageName: string,
+    packageVersion: string,
+    options: BuildOptions = {},
+  ) {
     // 检测包名或者版本号是否存在
     if (!packageVersion || !packageName) {
       throw new NotFoundException(
@@ -103,15 +111,19 @@ export class BuildService {
 
     const originAdapter = createOriginAdapter()
 
-    // 判断是否已经在OSS内存在，如已存在，则跳过
-    const isExistObject = await originAdapter.isExistObject(
-      path.join(uploadDir, ESMPACK_ESMD_FILE),
-    )
+    const { rebuild } = options
 
-    if (isExistObject) {
-      throw new ForbiddenException(
-        `Package ${packageName}@${packageVersion} has already been built.`,
+    if (!rebuild) {
+      // 判断是否已经在OSS内存在，如已存在，则跳过
+      const isExistObject = await originAdapter.isExistObject(
+        path.join(uploadDir, ESMPACK_ESMD_FILE),
       )
+
+      if (isExistObject) {
+        throw new ForbiddenException(
+          `Package ${packageName}@${packageVersion} has already been built.`,
+        )
+      }
     }
 
     const outputPath = path.join(OUTPUT_DIR, packageName, packageVersion)
@@ -167,88 +179,83 @@ export class BuildService {
     const packageJson = await this.rewritePackage(sourcePath)
 
     try {
-      if (needBuild) {
-        const { buildFiles, needCopyFiles } = await this.getFiles(
-          sourcePath,
-          packageJson,
-        )
+      const { buildFiles, needCopyFiles } = await this.getFiles(
+        sourcePath,
+        packageJson,
+      )
 
-        // 清空可能存在的构建输出文件
-        await fs.remove(outputPath)
+      // 清空可能存在的构建输出文件
+      await fs.remove(outputPath)
 
-        const buildJsFiles: string[] = []
-        const buildPkgFiles: string[] = []
-        for (const file of buildFiles) {
-          if (path.basename(file) === PACKAGE_JSON) {
-            buildPkgFiles.push(file)
-          } else {
-            buildJsFiles.push(file)
-          }
-        }
-
-        const esmBuild = async () => {
-          await fs.copy(sourcePath, outputPath)
-          await minifyEsmFiles(outputPath)
-          // 压缩 br 文件
-          //   await brotliCompressDir(outputPath)
-          // 构建 package.json
-          await build({
-            buildFiles: buildPkgFiles,
-            sourcePath,
-            outputPath,
-            entryFiles: [],
-            brotlfy: false,
-          })
-        }
-
-        // package.json内 如果有 esmpack字段
-        // 且 esmd=true，则表示改包已经符合esm规范，不需要进行构建，直接上传
-        if (packageJson?.esmpack?.esmd) {
-          await esmBuild()
+      const buildJsFiles: string[] = []
+      const buildPkgFiles: string[] = []
+      for (const file of buildFiles) {
+        if (path.basename(file) === PACKAGE_JSON) {
+          buildPkgFiles.push(file)
         } else {
-          // 只有一个入口，判断是否符合es 格式，若符合，则不进行构建优化
-          let isEsm = false
-
-          if (buildJsFiles.length === 1) {
-            const file = buildJsFiles[0]
-            isEsm = await isEsmFile(
-              fs.readFileSync(file, { encoding: 'utf-8' }),
-            )
-
-            // 符合 es 格式 直接拷贝
-            if (isEsm) {
-              await esmBuild()
-            }
-          }
-
-          // 入口文件不是esm，继续执行构建
-          if (!isEsm) {
-            const entryFiles = this.getEntryFiles(packageJson, sourcePath)
-            // 执行构建
-
-            await build({
-              buildFiles,
-              sourcePath,
-              outputPath,
-              entryFiles,
-              brotlfy: false,
-            })
-
-            // 拷贝其余文件到构建输出目录
-            await Promise.all(
-              needCopyFiles.map((file) =>
-                fs.copy(
-                  path.resolve(sourcePath, file),
-                  path.resolve(outputPath, file),
-                ),
-              ),
-            )
-          }
+          buildJsFiles.push(file)
         }
-      } else {
+      }
+
+      const esmBuild = async () => {
         await fs.copy(sourcePath, outputPath)
         await minifyEsmFiles(outputPath)
-        // await brotliCompressDir(outputPath)
+
+        // 压缩 br 文件
+        if (process.env.OPEN_COMPRESSION_BR === 'on') {
+          await brotliCompressDir(outputPath)
+        }
+        // 构建 package.json
+        await build({
+          buildFiles: buildPkgFiles,
+          sourcePath,
+          outputPath,
+          entryFiles: [],
+          brotlfy: false,
+        })
+      }
+
+      // package.json内 如果有 esmpack字段
+      // 且 esmd=true，则表示改包已经符合esm规范，不需要进行构建，直接上传
+      if (packageJson?.esmpack?.esmd) {
+        await esmBuild()
+      } else {
+        // 只有一个入口，判断是否符合es 格式，若符合，则不进行构建优化
+        let isEsm = false
+
+        if (buildJsFiles.length === 1) {
+          const file = buildJsFiles[0]
+          isEsm = await isEsmFile(fs.readFileSync(file, { encoding: 'utf-8' }))
+
+          // 符合 es 格式 直接拷贝
+          if (isEsm) {
+            await esmBuild()
+          }
+        }
+
+        // 入口文件不是esm，继续执行构建
+        if (!isEsm) {
+          const entryFiles = this.getEntryFiles(packageJson, sourcePath)
+          // 执行构建
+
+          await build({
+            buildFiles,
+            sourcePath,
+            outputPath,
+            entryFiles,
+            brotlfy: process.env.OPEN_COMPRESSION_BR === 'on',
+          })
+
+          // 拷贝其余文件到构建输出目录
+          await Promise.all(
+            needCopyFiles.map((file) =>
+              fs.copy(
+                path.resolve(sourcePath, file),
+                path.resolve(outputPath, file),
+              ),
+            ),
+          )
+        }
       }
 
       const duration = (new Date().getTime() - startTime) / 1000
@@ -259,7 +266,7 @@ export class BuildService {
       )
       console.log('')
 
-      // upload oss
+      //   upload oss
       await originAdapter.uploadDir({
         cwd: outputPath,
         uploadDir,

@@ -18,8 +18,8 @@
   "files.exclude": {
     "**/.editorconfig": true,
     "**/.eslintignore": true,
-    "**/.prettierignore": true,
-    "**/.esmd/*/**": true
+    "**/.prettierignore": true
+    // "**/.esmd/*/**": true
   },
   "files.watcherExclude": {
     "**/.git/objects/**": true,

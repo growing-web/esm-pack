@@ -384,6 +384,7 @@ async function findPkgFiles(root: string, pkgFiles: string[] = []) {
           }
         })
   const files = await fg(pattern, { cwd: root, ignore: FILES_IGNORE })
+
   const pkg = await readPackageJSON(root)
   return files.filter((item) => {
     const ext = path.extname(item)
