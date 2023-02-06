@@ -8,7 +8,6 @@ import request from 'request-promise'
 import LRUCache from 'lru-cache'
 import gunzip from 'gunzip-maybe'
 import { bufferStream } from './bufferStream'
-import axios from 'axios'
 
 const oneMegabyte = 1024 * 1024
 const oneSecond = 1000
@@ -366,7 +365,7 @@ export async function getPackageConfig(packageName: string, version: string) {
 
   if (value === null) {
     try {
-      cache.set(cacheKey, notFound, { ttl: 5 * oneMinute })
+      cache.set(cacheKey, notFound, { ttl: oneMinute })
     } catch (error) {
       console.error(error)
     }
@@ -390,7 +389,7 @@ export async function getVersionsAndTags(packageName: string) {
 
   if (value === null) {
     try {
-      cache.set(cacheKey, notFound, { ttl: 5 * oneMinute })
+      cache.set(cacheKey, notFound, { ttl: oneMinute })
     } catch (error) {
       console.error(error)
     }

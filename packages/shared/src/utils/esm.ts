@@ -13,7 +13,7 @@ export async function isEsmFile(content: string) {
 }
 
 export async function minifyEsmFiles(cwd: string) {
-  const files = fg.sync('**/**.js', { cwd, absolute: true })
+  const files = fg.sync('**/**.{js,mjs}', { cwd, absolute: true })
 
   const options: BuildOptions = {
     entryPoints: files,

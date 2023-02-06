@@ -40,11 +40,20 @@ export class NpmController {
         .send(result)
     }
 
-    // const acceptEncoding = req.header('Accept-Encoding')
-    const acceptBrotli = true
+    const acceptEncoding = req.header('Accept-Encoding')
+    const agent = UAParser(req.header('user-agent'))
+    const { browser, ua } = agent
 
-    const browser = UAParser(req.header('user-agent'))?.browser
+    const deviceAgent = ua.toLowerCase()
+    const agentID = deviceAgent.match(/(iphone|ipod|ipad|android)/)
+
     const isBrowser = !!browser.name
+
+    const acceptBrotli =
+      process.env.OPEN_COMPRESSION_BR === 'on'
+        ? (!agentID && acceptEncoding?.includes('br')) ?? false
+        : false
+
     const entry = await this.npmService.resolveFile(
       packageName,
       packageVersion,

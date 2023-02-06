@@ -154,6 +154,7 @@ export class NpmService {
 
     return entry
   }
+
   private async resolveEntries(
     packageName: string,
     packageVersion: string,
@@ -204,8 +205,8 @@ export class NpmService {
       if (!originResult) {
         return null
       }
-      const { stream, header, filepath } = originResult
 
+      const { stream, header, filepath } = originResult
       const content = await bufferStream(stream)
       const resultIsBrotli = acceptBrotli && isExitsBrotliFile
 

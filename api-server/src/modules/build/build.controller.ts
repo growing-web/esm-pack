@@ -40,6 +40,25 @@ export class BuildController {
   }
 
   /**
+   * rebuild the specified package
+   * @param param packageName@packageVersion
+   * @example vue@3.0.0
+   * @param res ok
+   */
+  @Post('/rebuild')
+  async reBuild(
+    @Body()
+    body: { packageName: string; packageVersion: string; filename: string },
+    @Res() res: Response,
+  ) {
+    const { packageName, packageVersion, filename } = body
+    const pathname = path.join(`${packageName}@${packageVersion}`, filename)
+
+    await this.buildService.build(pathname)
+    res.status(200).send('ok')
+  }
+
+  /**
    * build the specified package
    * @param param packageName@packageVersion
    * @example vue@3.0.0
