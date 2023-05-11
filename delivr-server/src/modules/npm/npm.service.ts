@@ -129,12 +129,12 @@ export class NpmService {
     // 通过 jspm generate 进行build时候，不需要进行 npm 回源处理，只访问OSS内的文件即可
     // 环境变量未开，也直接访问OSS即可
 
-    if (
-      !isBrowser ||
-      // 关闭后不依次从 Jsdelivr,Jspm,Npm回源
-      (process.env.OPEN_BACK_SOURCE !== 'on' &&
-        !whiteList.includes(packageName))
-    ) {
+    if (!isBrowser) {
+      return entry
+    }
+
+    // 关闭后不依次从 Jsdelivr,Jspm,Npm回源
+    if (process.env.OPEN_BACK_SOURCE !== 'on') {
       return entry
     }
 
@@ -212,6 +212,15 @@ export class NpmService {
     filename: string,
     acceptBrotli = false,
   ) {
+    let url = path.join(
+      this.getUploadDir(packageName, packageVersion),
+      filename,
+    )
+    const cacheKey = `oss-${url}`
+    if (cache.get(cacheKey)) {
+      Logger.info(`load for lru-cache:${cacheKey}`)
+      return cache.get(cacheKey) as any
+    }
     try {
       const originMeta = await this.getOriginMeta({
         packageName,
@@ -239,6 +248,7 @@ export class NpmService {
         filepath,
         ...(resultIsBrotli ? { 'Content-Encoding': 'br' } : {}),
       }
+      cache.set(cacheKey, entry)
       return entry
     } catch (error) {
       console.error(error)
@@ -262,6 +272,7 @@ export class NpmService {
       this.getUploadDir(packageName, packageVersion),
       filename,
     )
+
     let isExitsBrotliFile = false
 
     const originAdapter = createOriginAdapter()
@@ -387,9 +398,11 @@ export class NpmService {
     acceptBrotli: Boolean,
   ) {
     const url = path.join(`${packageName}@${packageVersion}`, filename)
-    if (cache.get(url)) {
-      Logger.info(`load for lru-cache:${url}`)
-      return cache.get(url) as any
+
+    const cacheKey = `jspm-${url}`
+    if (cache.get(cacheKey)) {
+      Logger.info(`load for lru-cache:${cacheKey}`)
+      return cache.get(cacheKey) as any
     }
     const result = await this.resolveEntryForExternal(
       `${process.env.JSPM_URL}/npm:${url}`,
@@ -397,7 +410,7 @@ export class NpmService {
       acceptBrotli,
     )
 
-    cache.set(url, result)
+    cache.set(cacheKey, result)
     return result
   }
 
