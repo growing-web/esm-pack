@@ -75,7 +75,7 @@ export class BuildService {
       //   await redisUtil.set(lockKey, '1', 10)
 
       // Redis 分布式锁，防止执行相同的包构建任务
-      await redisLock.lock(lockKey, 40 * 1000, 50, 10)
+      await redisLock.lock(lockKey, 20 * 1000, 50, 10)
 
       await this.doBuild(packageName, packageVersion, options)
     } catch (error: any) {

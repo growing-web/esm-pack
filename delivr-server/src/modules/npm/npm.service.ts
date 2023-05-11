@@ -100,13 +100,15 @@ export class NpmService {
     // const randomExpire = Math.round(Math.random() * (min + 5 * 60 - min)) + min
 
     // 对一些特殊的依赖直接回退到jspm，jspm有比较成熟的构建机制
-    let whiteList: string[] = []
+    let whiteList: string[] = ['@jspm/core', 'es-module-shims']
     try {
-      whiteList = process.env.BACK_SOURCE_WHITE_LIST?.split(',') ?? []
+      const configWhiteList =
+        process.env.BACK_SOURCE_WHITE_LIST?.split(',') ?? []
+      whiteList.push(...configWhiteList)
 
       if (whiteList.includes(packageName)) {
         Logger.info(`whiteList ${packageName} for Jspm.`)
-        return this.resolveEntryForJspm(
+        return await this.resolveEntryForJspm(
           packageName,
           packageVersion,
           filename,
