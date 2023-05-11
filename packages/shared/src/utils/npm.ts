@@ -5,7 +5,7 @@ import fetch from 'npm-registry-fetch'
 import fs from 'fs-extra'
 import tar from 'tar'
 import request from 'request-promise'
-import LRUCache from 'lru-cache'
+import { LRUCache } from 'lru-cache'
 import gunzip from 'gunzip-maybe'
 import { bufferStream } from './bufferStream'
 

@@ -14,6 +14,7 @@ import {
   getContentType,
   isEsmFile,
   brotliCompress,
+  LRUCache,
 } from '@growing-web/esmpack-shared'
 import {
   ForbiddenException,
@@ -23,6 +24,12 @@ import tar from 'tar-stream'
 
 import { Logger } from '@/plugins/index'
 // import { RedisUtil } from '@/plugins/redis'
+
+const cache = new LRUCache({
+  // 1分钟
+  ttl: 1000 * 60,
+  max: 500,
+})
 
 @Injectable()
 export class NpmService {
@@ -92,6 +99,24 @@ export class NpmService {
 
     // const randomExpire = Math.round(Math.random() * (min + 5 * 60 - min)) + min
 
+    // 对一些特殊的依赖直接回退到jspm，jspm有比较成熟的构建机制
+    let whiteList: string[] = []
+    try {
+      whiteList = process.env.BACK_SOURCE_WHITE_LIST?.split(',') ?? []
+
+      if (whiteList.includes(packageName)) {
+        Logger.info(`whiteList ${packageName} for Jspm.`)
+        return this.resolveEntryForJspm(
+          packageName,
+          packageVersion,
+          filename,
+          false,
+        )
+      }
+    } catch (error) {
+      //
+    }
+
     let entry = await this.resolveEntry(
       packageName,
       packageVersion,
@@ -99,19 +124,9 @@ export class NpmService {
       acceptBrotli,
     )
 
-    let whiteList: string[] = []
-    try {
-      whiteList = process.env.BACK_SOURCE_WHITE_LIST?.split(',') ?? []
-    } catch (error) {
-      //
-    }
     // 通过 jspm generate 进行build时候，不需要进行 npm 回源处理，只访问OSS内的文件即可
     // 环境变量未开，也直接访问OSS即可
-    if (
-      !isBrowser ||
-      (process.env.OPEN_BACK_SOURCE !== 'on' &&
-        !whiteList.includes(packageName))
-    ) {
+    if (!isBrowser) {
       return entry
     }
 

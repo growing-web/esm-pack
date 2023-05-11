@@ -313,7 +313,7 @@ function createRollupPlugins(
     }),
     rollupPluginWrapTargets(false, name),
     esbuild({
-      target: 'es2015',
+      target: 'es2018',
       //   legalComments: 'inline',
       minify: dev ? false : minify,
       define: {

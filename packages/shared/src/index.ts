@@ -10,6 +10,6 @@ export * from './utils/compress'
 export * from './logger'
 
 import semver from 'semver'
-import LruCache from 'lru-cache'
+import { LRUCache } from 'lru-cache'
 
-export { semver, LruCache }
+export { semver, LRUCache }

@@ -47,6 +47,7 @@ export const FILES_IGNORE = [
   '**/log/**',
   '**/bin/**',
   '**/__tests__/**',
+  '**/.turbo/**',
   '**/__test__/**',
   '**/node_modules/**',
   '**/deploy/**',

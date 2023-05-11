@@ -21,14 +21,13 @@ const JS_RE = /\.[m]?js$/
 
 export async function resolvePackage(cachePath: string) {
   const pkg = await readPackageJSON(cachePath)
-  // @ts-ignore
 
+  // @ts-ignore
   if (pkg?.files?.includes('package.json.js')) {
     return pkg
   }
 
-  let pkgExports = await resolveExports(pkg, cachePath)
-  pkgExports = await ignoreExports(pkg, pkgExports)
+  const pkgExports = await resolveExports(pkg, cachePath)
 
   const files = await resolveFiles(pkg, cachePath, pkgExports)
   pkg.exports = pkgExports
@@ -39,25 +38,6 @@ export async function resolvePackage(cachePath: string) {
   Object.assign(pkg, await resolveImports(pkg))
 
   return pkg
-}
-
-/**
- * 根据npm包内配置的参数进行忽略
- */
-async function ignoreExports(pkg: PackageJson, pkgExports: Recordable) {
-  const ignore = pkg?.esmpack?.ignore ?? []
-  if (!ignore.length) {
-    return pkgExports
-  }
-
-  const ret: Recordable = {}
-  for (const [key, value] of Object.entries(pkgExports)) {
-    if (ignore.includes(value)) {
-      continue
-    }
-    ret[key] = value
-  }
-  return ret
 }
 
 export async function resolveImports(pkg: Recordable) {

@@ -1,5 +1,5 @@
 import overridesJSON from './v1-overrides'
-import { LruCache } from '@growing-web/esmpack-shared'
+import { LRUCache } from '@growing-web/esmpack-shared'
 import axios from 'axios'
 
 let cache
@@ -21,7 +21,7 @@ async function getRemoteOverrides(packageName: string) {
   const oneSecond = 1000
   const oneMinute = oneSecond * 60
   if (!cache) {
-    cache = new LruCache<BufferEncoding, any>({
+    cache = new LRUCache<BufferEncoding, any>({
       maxSize: oneMegabyte * 40,
       sizeCalculation: Buffer.byteLength,
       ttl: oneMinute * 10,

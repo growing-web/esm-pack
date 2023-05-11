@@ -281,6 +281,35 @@ export class BuildService {
   }
 
   private async rewritePackage(cachePath: string) {
+    const originPkg = await readPackageJSON(cachePath)
+
+    // 覆盖生成的原本的exports
+    const overrides = originPkg?.esmpack?.overrides
+    if (overrides) {
+      const {
+        exports: oExports,
+        main: oMain,
+        module: oModule,
+        files: oFiles,
+      } = overrides || { overrides }
+      if (oExports) {
+        originPkg.exports = oExports
+      }
+      if (oMain) {
+        originPkg.main = oMain
+      }
+      if (oModule) {
+        originPkg.module = oModule
+      }
+      if (oFiles) {
+        originPkg.files = oFiles
+      }
+    }
+
+    // 进行覆盖重写
+    await writePackageJSON(path.join(cachePath, PACKAGE_JSON), originPkg)
+
+    // 进行解析重写
     const pkg = await resolvePackage(cachePath)
     await writePackageJSON(path.join(cachePath, PACKAGE_JSON), pkg)
     return pkg
@@ -385,14 +414,13 @@ export class BuildService {
         return false
       }
       if (!fs.existsSync(path.join(cachePath, file))) {
-        if (!path.basename(file).startsWith('dev.')) {
+        if (!path.basename(file).startsWith('dev.') && !file.includes('*')) {
           Logger.warn(
             `Package(${colors.cyan(
               pkgJson.name,
             )}): Potential missing package.json files: ${colors.cyan(file)}`,
           )
         }
-
         return false
       }
 
