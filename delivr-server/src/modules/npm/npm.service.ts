@@ -26,8 +26,8 @@ import { Logger } from '@/plugins/index'
 // import { RedisUtil } from '@/plugins/redis'
 
 const cache = new LRUCache({
-  // 1分钟
-  ttl: 1000 * 60,
+  // 10分钟
+  ttl: 1000 * 60 * 10,
   max: 500,
 })
 
@@ -128,7 +128,13 @@ export class NpmService {
 
     // 通过 jspm generate 进行build时候，不需要进行 npm 回源处理，只访问OSS内的文件即可
     // 环境变量未开，也直接访问OSS即可
-    if (!isBrowser) {
+
+    if (
+      !isBrowser ||
+      // 关闭后不依次从 Jsdelivr,Jspm,Npm回源
+      (process.env.OPEN_BACK_SOURCE !== 'on' &&
+        !whiteList.includes(packageName))
+    ) {
       return entry
     }
 
@@ -381,11 +387,18 @@ export class NpmService {
     acceptBrotli: Boolean,
   ) {
     const url = path.join(`${packageName}@${packageVersion}`, filename)
-    return await this.resolveEntryForExternal(
+    if (cache.get(url)) {
+      Logger.info(`load for lru-cache:${url}`)
+      return cache.get(url) as any
+    }
+    const result = await this.resolveEntryForExternal(
       `${process.env.JSPM_URL}/npm:${url}`,
       filename,
       acceptBrotli,
     )
+
+    cache.set(url, result)
+    return result
   }
 
   async resolveEntryForJsdelivr(
