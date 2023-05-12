@@ -22,7 +22,7 @@
     "changeset": "changeset",
     "dev": "pnpm start:dev",
     "preinstall": "npx only-allow pnpm",
-    "prepare": "pnpm husky install || true",
+    "prepare": "corepack enable && pnpm husky install || true",
     "lint": "eslint .  --fix",
     "pm2:restart": "pnpm --filter @growing-web/esmpack-*-server run pm2:restart",
     "pm2:start": "turbo run build && pnpm --filter @growing-web/esmpack-*-server run pm2:start",
@@ -37,6 +37,7 @@
     "test": "vitest",
     "version": "pnpm run changeset version"
   },
+  "packageManager": "pnpm@8.5.0",
   "lint-staged": {
     "*": [
       "prettier --write --ignore-unknown"

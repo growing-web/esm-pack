@@ -212,15 +212,15 @@ export class NpmService {
     filename: string,
     acceptBrotli = false,
   ) {
-    let url = path.join(
-      this.getUploadDir(packageName, packageVersion),
-      filename,
-    )
-    const cacheKey = `oss-${url}`
-    if (cache.get(cacheKey)) {
-      Logger.info(`load for lru-cache:${cacheKey}`)
-      return cache.get(cacheKey) as any
-    }
+    // let url = path.join(
+    //   this.getUploadDir(packageName, packageVersion),
+    //   filename,
+    // )
+    // const cacheKey = `oss-${url}`
+    // if (cache.get(cacheKey)) {
+    //   Logger.info(`load for lru-cache:${cacheKey}`)
+    //   return cache.get(cacheKey) as any
+    // }
     try {
       const originMeta = await this.getOriginMeta({
         packageName,
@@ -248,7 +248,7 @@ export class NpmService {
         filepath,
         ...(resultIsBrotli ? { 'Content-Encoding': 'br' } : {}),
       }
-      cache.set(cacheKey, entry)
+      //   cache.set(cacheKey, entry)
       return entry
     } catch (error) {
       console.error(error)

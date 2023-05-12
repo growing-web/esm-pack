@@ -8,9 +8,7 @@ ARG NODE_ENV=production
 RUN apt-get update && apt-get install tree -y
 
 RUN npm config set registry https://registry.npmmirror.com/
-RUN npm install pnpm turbo -g
-RUN npm install pnpm unbuild -g
-
+RUN npm install pnpm turbo unbuild -g
 
 # 安装目录
 ARG APP_INSTALL_PATH=/esmpack-app
@@ -24,11 +22,13 @@ COPY . ${APP_INSTALL_PATH}
 
 WORKDIR ${APP_INSTALL_PATH}
 
-RUN pnpm fetch
+RUN corepack enable
 
-RUN pnpm install
+RUN corepack pnpm fetch
 
-RUN pnpm run build
+RUN corepack pnpm install
+
+RUN corepack pnpm run build
 
 EXPOSE 80
 

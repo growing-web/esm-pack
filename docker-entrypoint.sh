@@ -43,7 +43,7 @@ validateApp(){
 install(){
   local app="$1"
   cd "${appInstallPath}"
-  yarn install:deps:all
+  corepack pnpm install
 }
 
 #######################################
@@ -54,7 +54,7 @@ install(){
 start(){
   local app="$1"
   cd "${appInstallPath}"
-  yarn start:${app}
+  pnpm start:${app}
 }
 
 #######################################
@@ -65,7 +65,7 @@ start(){
 start_pm2(){
   local app="$1"
   cd "${appInstallPath}"
-  npm run start:${app}
+  pnpm run start:${app}
 }
 
 #######################################
@@ -76,7 +76,7 @@ start_pm2(){
 stop(){
   local app="$1"
   cd "${appInstallPath}"
-  yarn stop:${app}
+  pnpm stop:${app}
 }
 
 #######################################
@@ -87,7 +87,7 @@ stop(){
 stop_pm2(){
   local app="$1"
   cd "${appInstallPath}"
-  yarn stop_pm2:${app}
+  pnpm stop_pm2:${app}
 }
 
 #######################################
